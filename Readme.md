@@ -1,7 +1,7 @@
 # Проект «Большое путешествие»
 
 * Студент: [Иван Макрушин](https://up.htmlacademy.ru/ecmascript-individual/2/user/2367693).
-* Наставник: `Неизвестно`.
+* Наставник: `Alexey Koryakin`.
 
 ---
 
