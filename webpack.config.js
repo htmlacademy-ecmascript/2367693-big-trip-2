@@ -3,7 +3,7 @@ const CopyPlugin = require('copy-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: './src/main.js', // Точка входа
+  entry: './src/main.js', // Точка входа коментарий
   output: {
     filename: 'bundle.[contenthash].js', // Имя бандла
     path: path.resolve(__dirname, 'build'), // Директория для файлов сборки
