@@ -4,21 +4,21 @@ function createEventPointTemplate(event) {
   return `
     <li class="trip-events__item">
       <div class="event">
-        <time class="event__date" datetime="${event.date}">${event.dateFormatted}</time>
         <div class="event__type">
-          <img class="event__type-icon" width="42" height="42" src="img/icons/${event.type}.png" alt="Event type icon">
+          <img class="event__type-icon" width="42" height="42" src="img/icons/${event.eventType}.png" alt="Event type icon">
         </div>
-        <h3 class="event__title">${event.title}</h3>
+        <h3 class="event__title">${event.eventType} ${event.destination ? event.destination.name : 'Unknown'}</h3>
+
         <div class="event__schedule">
           <p class="event__time">
-            <time class="event__start-time" datetime="${event.startTime}">${event.startTimeFormatted}</time>
+            <time class="event__start-time" datetime="${event.startTime}">${event.startTime.replace('T', ' ')}</time>
             &mdash;
-            <time class="event__end-time" datetime="${event.endTime}">${event.endTimeFormatted}</time>
+            <time class="event__end-time" datetime="${event.endTime}">${event.endTime.replace('T', ' ')}</time>
           </p>
-          <p class="event__duration">${event.duration}</p>
         </div>
+
         <p class="event__price">
-          &euro;&nbsp;<span class="event__price-value">${event.price}</span>
+          €&nbsp;<span class="event__price-value">${event.price}</span>
         </p>
       </div>
     </li>
