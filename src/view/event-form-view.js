@@ -1,5 +1,5 @@
 import { createElement } from '../render.js';
-import { EventFormMode } from '../const.js'; // ✅ Исправленный импорт
+import { EventFormMode } from '../const.js';
 
 function createEventFormTemplate({ mode }) {
   const isEdit = mode === EventFormMode.EDIT;
