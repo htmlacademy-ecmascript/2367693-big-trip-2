@@ -1,47 +1,54 @@
-import FiltersView from '../view/filters-view.js';
+import TripFiltersView from '../view/trip-filters-view.js';
 import SortView from '../view/sort-view.js';
+import TripEventsView from '../view/trip-events-view.js';
 import EventFormView from '../view/event-form-view.js';
 import EventPointView from '../view/event-point-view.js';
 import { render, RenderPosition } from '../render.js';
 
 export default class TripPresenter {
-  constructor(container) {
+  constructor(container, tripEventModel) {
     this.container = container;
+    this.tripEventModel = tripEventModel;
+    this.tripEventsComponent = new TripEventsView();
   }
 
   init() {
+    // Получаем данные из модели
+    const tripEvents = this.tripEventModel.getTripEvents();
+    const destinations = this.tripEventModel.getDestinations();
+
+    // находим секцию .trip-events в index.html
+    const tripEventsContainer = document.querySelector('.trip-events');
+
+    if (!tripEventsContainer) {
+      throw new Error('Container .trip-events not found in index.html');
+    }
+
+    // Рендерим список событий внутрь найденной секции
+    render(this.tripEventsComponent, tripEventsContainer, RenderPosition.BEFOREEND);
+
     // Рендерим фильтры
-    const filtersComponent = new FiltersView();
-    render(filtersComponent, this.container, RenderPosition.BEFOREEND);
+    render(new TripFiltersView(), this.container, RenderPosition.BEFOREEND);
 
     // Рендерим сортировку
-    const sortComponent = new SortView();
-    render(sortComponent, this.container, RenderPosition.BEFOREEND);
+    render(new SortView(), tripEventsContainer, RenderPosition.AFTERBEGIN);
 
     // Контейнер для списка событий
-    const eventsList = document.createElement('ul');
-    eventsList.classList.add('trip-events__list');
-    this.container.appendChild(eventsList);
+    const eventsList = this.tripEventsComponent.getElement();
 
     // Рендерим форму редактирования первой в списке
-    const eventFormComponent = new EventFormView();
-    render(eventFormComponent, eventsList, RenderPosition.AFTERBEGIN);
+    if (tripEvents.length > 0) {
+      const eventFormItem = document.createElement('li');
+      eventFormItem.classList.add('trip-events__item');
+      eventFormItem.append(new EventFormView({ mode: 'edit' }).getElement());
 
-    // Рендерим 3 точки маршрута
-    for (let i = 0; i < 3; i++) {
-      const eventPointComponent = new EventPointView({
-        date: '2025-03-18',
-        dateFormatted: 'MAR 18',
-        type: 'taxi',
-        title: 'Taxi Amsterdam',
-        startTime: '2025-03-18T10:30',
-        startTimeFormatted: '10:30',
-        endTime: '2025-03-18T11:00',
-        endTimeFormatted: '11:00',
-        duration: '30M',
-        price: 20
-      });
-      render(eventPointComponent, eventsList, RenderPosition.BEFOREEND);
+      render(eventFormItem, eventsList, RenderPosition.AFTERBEGIN);
     }
+
+    // Рендерим точки маршрута
+    tripEvents.forEach((tripEvent) => {
+      const destination = destinations.find((dest) => dest.id === tripEvent.destinationId);
+      render(new EventPointView({ ...tripEvent, destination }), eventsList, RenderPosition.BEFOREEND);
+    });
   }
 }

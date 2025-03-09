@@ -24,7 +24,7 @@ function createFiltersTemplate() {
   `;
 }
 
-export default class FiltersView {
+export default class TripFiltersView {
   getTemplate() {
     return createFiltersTemplate();
   }
