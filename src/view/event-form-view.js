@@ -1,11 +1,21 @@
 import { createElement } from '../render.js';
-import { EventFormMode } from '../const.js';
+import { EventFormMode, TRIP_EVENT_TYPES } from '../const.js';
+
+function createEventTypeListTemplate() {
+  return TRIP_EVENT_TYPES.map((type) => `
+    <div class="event__type-item">
+      <input id="event-type-${type.toLowerCase()}-1" class="event__type-input visually-hidden" type="radio" name="event-type" value="${type}">
+      <label class="event__type-label event__type-label--${type.toLowerCase()}" for="event-type-${type.toLowerCase()}-1">${type}</label>
+    </div>
+  `).join('');
+}
 
 function createEventFormTemplate({ mode }) {
   const isEdit = mode === EventFormMode.EDIT;
+  const formClass = isEdit ? 'event event--edit' : 'event event--new';
 
   return `
-    <form class="event event--edit" action="#" method="post">
+    <form class="${formClass}" action="#" method="post">
       <header class="event__header">
         <div class="event__type-wrapper">
           <label class="event__type event__type-btn" for="event-type-toggle-1">
@@ -13,6 +23,13 @@ function createEventFormTemplate({ mode }) {
             <img class="event__type-icon" width="17" height="17" src="img/icons/flight.png" alt="Event type icon">
           </label>
           <input class="event__type-toggle visually-hidden" id="event-type-toggle-1" type="checkbox">
+
+          <div class="event__type-list">
+            <fieldset class="event__type-group">
+              <legend class="visually-hidden">Event type</legend>
+              ${createEventTypeListTemplate()}
+            </fieldset>
+          </div>
         </div>
 
         <div class="event__field-group event__field-group--destination">

@@ -11,7 +11,7 @@ export const generateTripEvent = () => {
   return {
     id: crypto.randomUUID(),
     eventType,
-    destinationId: destination.id,
+    destination,
     startTime,
     endTime,
     price: getRandomNumber(PRICE_RANGE.MIN, PRICE_RANGE.MAX),

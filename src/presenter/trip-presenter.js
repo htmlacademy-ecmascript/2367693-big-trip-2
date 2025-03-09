@@ -1,5 +1,6 @@
 import TripFiltersView from '../view/trip-filters-view.js';
 import SortView from '../view/sort-view.js';
+import TripEventsView from '../view/trip-events-view.js';
 import EventFormView from '../view/event-form-view.js';
 import EventPointView from '../view/event-point-view.js';
 import { render, RenderPosition } from '../render.js';
@@ -8,6 +9,7 @@ export default class TripPresenter {
   constructor(container, tripEventModel) {
     this.container = container;
     this.tripEventModel = tripEventModel;
+    this.tripEventsComponent = new TripEventsView();
   }
 
   init() {
@@ -15,20 +17,32 @@ export default class TripPresenter {
     const tripEvents = this.tripEventModel.getTripEvents();
     const destinations = this.tripEventModel.getDestinations();
 
+    // находим секцию .trip-events в index.html
+    const tripEventsContainer = document.querySelector('.trip-events');
+
+    if (!tripEventsContainer) {
+      throw new Error('Container .trip-events not found in index.html');
+    }
+
+    // Рендерим список событий внутрь найденной секции
+    render(this.tripEventsComponent, tripEventsContainer, RenderPosition.BEFOREEND);
+
     // Рендерим фильтры
     render(new TripFiltersView(), this.container, RenderPosition.BEFOREEND);
 
     // Рендерим сортировку
-    render(new SortView(), this.container, RenderPosition.BEFOREEND);
+    render(new SortView(), tripEventsContainer, RenderPosition.AFTERBEGIN);
 
     // Контейнер для списка событий
-    const eventsList = document.createElement('ul');
-    eventsList.classList.add('trip-events__list');
-    this.container.appendChild(eventsList);
+    const eventsList = this.tripEventsComponent.getElement();
 
     // Рендерим форму редактирования первой в списке
     if (tripEvents.length > 0) {
-      render(new EventFormView({ mode: 'edit' }), eventsList, RenderPosition.AFTERBEGIN);
+      const eventFormItem = document.createElement('li');
+      eventFormItem.classList.add('trip-events__item');
+      eventFormItem.append(new EventFormView({ mode: 'edit' }).getElement());
+
+      render(eventFormItem, eventsList, RenderPosition.AFTERBEGIN);
     }
 
     // Рендерим точки маршрута

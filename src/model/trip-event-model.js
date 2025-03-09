@@ -3,7 +3,10 @@ import { generateTripEvents } from '../mock/trip-event-mock.js';
 
 export default class TripEventModel {
   constructor() {
-    this.tripEvents = generateTripEvents();
+    this.tripEvents = generateTripEvents().map((event) => ({
+      ...event,
+      offers: TRIP_OFFERS[event.eventType] || [],
+    }));
     this.destinations = TRIP_DESTINATIONS;
     this.offers = TRIP_OFFERS;
   }
