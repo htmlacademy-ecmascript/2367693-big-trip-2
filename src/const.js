@@ -3,18 +3,42 @@ const EventFormMode = {
   CREATE: 'create',
 };
 
-const TRIP_EVENT_TYPES = ['taxi', 'bus', 'train', 'ship', 'drive', 'flight', 'check-in', 'sightseeing', 'restaurant'];
+const TRIP_EVENT_TYPES = ['Taxi', 'Bus', 'Train', 'Ship', 'Drive', 'Flight', 'Check-in', 'Sightseeing', 'Restaurant'];
+
+const TRIP_OFFERS = {
+  Taxi: [{ id: '1', title: 'Order Uber', price: 20 }],
+  Flight: [
+    { id: '2', title: 'Upgrade to comfort class', price: 50 },
+    { id: '3', title: 'Add luggage', price: 80 },
+  ],
+  Train: [{ id: '4', title: 'Add meal service', price: 15 }],
+  Bus: [{ id: '5', title: 'Extra legroom', price: 10 }],
+  Ship: [{ id: '6', title: 'Premium cabin', price: 100 }],
+  Sightseeing: [
+    { id: '7', title: 'Tour guide', price: 30 },
+    { id: '8', title: 'Book tickets', price: 40 },
+  ],
+};
 
 const TRIP_DESTINATIONS = [
-  { id: '1', name: 'Amsterdam', description: 'A beautiful city with canals.', pictures: ['https://loremflickr.com/248/152?random=1'] },
-  { id: '2', name: 'Geneva', description: 'The city of diplomacy.', pictures: ['https://loremflickr.com/248/152?random=2'] },
-  { id: '3', name: 'Chamonix', description: 'A paradise for mountaineers.', pictures: ['https://loremflickr.com/248/152?random=3'] }
-];
-
-const TRIP_OFFERS = [
-  { id: '1', eventType: 'taxi', title: 'Order Uber', price: 20 },
-  { id: '2', eventType: 'flight', title: 'Upgrade to comfort class', price: 50 },
-  { id: '3', eventType: 'train', title: 'Add meal service', price: 15 }
+  {
+    id: '1',
+    name: 'Amsterdam',
+    description: 'A beautiful city with canals.',
+    pictures: [{ src: 'https://loremflickr.com/248/152?random=1', description: 'Scenic view of Amsterdam' }],
+  },
+  {
+    id: '2',
+    name: 'Geneva',
+    description: 'The city of diplomacy.',
+    pictures: [{ src: 'https://loremflickr.com/248/152?random=2', description: 'Beautiful Geneva cityscape' }],
+  },
+  {
+    id: '3',
+    name: 'Chamonix',
+    description: 'A paradise for mountaineers.',
+    pictures: [{ src: 'https://loremflickr.com/248/152?random=3', description: 'Chamonix mountain view' }],
+  }
 ];
 
 // Базовая дата для генерации мок-данных
