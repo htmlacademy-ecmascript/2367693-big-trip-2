@@ -5,6 +5,7 @@ import EventPointView from '../view/event-point-view.js';
 import TripInfoView from '../view/trip-info-view.js';
 import TripEventsView from '../view/trip-events-view.js';
 import { render, RenderPosition } from '../render.js';
+import dayjs from 'dayjs';
 
 export default class TripPresenter {
   constructor(tripEventModel, tripMainElement, tripEventsElement) {
@@ -14,68 +15,69 @@ export default class TripPresenter {
   }
 
   init() {
-    const tripEvents = this.tripEventModel.getTripEvents();
-    const destinations = this.tripEventModel.getDestinations();
+    const tripEvents = this.tripEventModel.getPoints();
 
-    //  Получаем маршрут и стоимость
-    const { title, dates } = this.tripEventModel.getRouteInfo();
+    const routeTitle = tripEvents.length > 0
+      ? tripEvents.sort((a, b) => a.dateFrom - b.dateFrom).map((event) => event.destination?.name || 'Unknown').join(' — ')
+      : 'No destinations';
+
+    const startDate = tripEvents.length > 0
+      ? dayjs(tripEvents.reduce((min, event) => event.dateFrom < min ? event.dateFrom : min, tripEvents[0].dateFrom)).format('DD MMM')
+      : null;
+
+    const endDate = tripEvents.length > 0
+      ? dayjs(tripEvents.reduce((max, event) => event.dateTo > max ? event.dateTo : max, tripEvents[0].dateTo)).format('DD MMM')
+      : null;
+
+    const tripDates = startDate && endDate ? `${startDate} — ${endDate}` : '';
     const totalPrice = this.tripEventModel.getTotalPrice();
 
-    //  Корректное формирование заголовка маршрута
-    let tripTitle;
-    if (tripEvents.length > 3) {
-      const sortedEvents = [...tripEvents].sort((a, b) => a.startTime - b.startTime);
-      const startCity = destinations.find((dest) => dest.id === sortedEvents[0].destinationId)?.name || 'Unknown';
-      const endCity = destinations.find((dest) => dest.id === sortedEvents[sortedEvents.length - 1].destinationId)?.name || 'Unknown';
-      tripTitle = `${startCity} — ... — ${endCity}`;
-    } else if (tripEvents.length > 0) {
-      tripTitle = title;
-    } else {
-      tripTitle = 'No destinations';
-    }
-
-    //  Рендерим TripInfoView в trip-main
-    const tripInfoComponent = new TripInfoView(tripTitle, dates, totalPrice);
+    const tripInfoComponent = new TripInfoView(routeTitle, tripDates, totalPrice);
     render(tripInfoComponent, this.tripMainElement, RenderPosition.AFTERBEGIN);
 
-    //  Находим контейнер для фильтров
     const tripControlsElement = document.querySelector('.trip-controls__filters');
-
-    //  Фильтры рендерятся в trip-controls
     render(new TripFiltersView(), tripControlsElement, RenderPosition.BEFOREEND);
 
-    //  Сортировка рендерится после заголовком Trip events
     render(new SortView(), this.tripEventsElement, RenderPosition.BEFOREEND);
-
-    //  Список рендерится после сортировки
     render(new TripEventsView(), this.tripEventsElement, RenderPosition.BEFOREEND);
 
-    //  Используем появившийся <ul class="trip-events__list">
     const eventsList = this.tripEventsElement.querySelector('.trip-events__list');
 
-    //  Форма редактирования первой точки маршрута
-    if (tripEvents.length > 0) {
-      const firstTripEvent = tripEvents[0];
-      const eventFormItem = document.createElement('li');
-      eventFormItem.classList.add('trip-events__item');
+    const eventFormItem = document.createElement('li');
+    eventFormItem.classList.add('trip-events__item');
 
-      //  Извлекаем офферы и destination для первой точки маршрута
-      const destination = destinations.find((dest) => dest.id === firstTripEvent.destinationId) || { name: '', description: '', pictures: [] };
-      const offers = firstTripEvent.offers || [];
+    const firstTripEvent = tripEvents.length > 0 ? JSON.parse(JSON.stringify(tripEvents[0])) : null;
 
-      //  Передаём destination и офферы в EventFormView
-      eventFormItem.append(new EventFormView({ mode: 'edit', offers, destination }).getElement());
+    const firstTripOffers = firstTripEvent ? this.tripEventModel.getOffersByType(firstTripEvent.type)
+      ?.map((offer) => ({
+        ...offer,
+        isSelected: Array.isArray(firstTripEvent.offers) &&
+          firstTripEvent.offers.some((id) => String(id).trim() === String(offer.id).trim())
+      })) || [] : [];
 
-      render(eventFormItem, eventsList, RenderPosition.AFTERBEGIN);
-    }
+    eventFormItem.append(
+      new EventFormView({
+        mode: 'edit',
+        offers: firstTripOffers,
+        destination: firstTripEvent?.destination || { name: 'Unknown', pictures: [] },
+        dateFrom: firstTripEvent?.dateFrom || dayjs().toISOString(),
+        dateTo: firstTripEvent?.dateTo || dayjs().add(1, 'day').toISOString(),
+        availableDestinations: this.tripEventModel.destinations,
+        availableTypes: this.tripEventModel.getOfferTypes()
+      }).getElement()
+    );
+    render(eventFormItem, eventsList, RenderPosition.AFTERBEGIN);
 
-    //  Рендерим точки маршрута
     tripEvents.forEach((tripEvent) => {
-      const destination = destinations.find((dest) => dest.id === tripEvent.destinationId) || { name: 'Unknown', pictures: [] };
-      const offers = tripEvent.offers || [];
-      const isFavorite = tripEvent.isFavorite ?? false;
+      const rawOffers = this.tripEventModel.getOffersByType(tripEvent.type);
+      const offers = Array.isArray(rawOffers)
+        ? rawOffers.map((tripOffer) => ({
+          ...tripOffer,
+          isSelected: tripEvent.offers.map((eventOffer) => String(eventOffer.id)).includes(String(tripOffer.id).trim())
+        }))
+        : [];
 
-      render(new EventPointView({ ...tripEvent, destination, offers, isFavorite }).getElement(), eventsList, RenderPosition.BEFOREEND);
+      render(new EventPointView({ ...tripEvent, destination: tripEvent.destination, offers }).getElement(), eventsList, RenderPosition.BEFOREEND);
     });
   }
 }

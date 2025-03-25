@@ -4,55 +4,67 @@ import duration from 'dayjs/plugin/duration.js';
 
 dayjs.extend(duration);
 
-function calculateEventDuration(startTime, endTime) {
-  const diff = dayjs(endTime).diff(dayjs(startTime), 'minute');
-  return dayjs.duration(diff, 'minutes').format('H[H] mm[M]');
+// Функция вычисления продолжительности события
+function calculateEventDuration(dateFrom, dateTo) {
+  const diff = dayjs(dateTo).diff(dayjs(dateFrom), 'minute');
+
+  if (diff < 60) {
+    return `${diff}M`;
+  } else if (diff < 1440) {
+    return `${Math.floor(diff / 60)}H ${diff % 60}M`;
+  } else {
+    const days = Math.floor(diff / 1440);
+    const hours = Math.floor((diff % 1440) / 60);
+    const minutes = diff % 60;
+    return `${days}D ${hours}H ${minutes}M`;
+  }
 }
 
-function createEventPointTemplate(event) {
-  const { eventType, destination, startTime, endTime, price, offers, isFavorite } = event;
+// Функция генерации шаблона точки маршрута
+function createEventPointTemplate(point) {
+  const { type, destination, dateFrom, dateTo, basePrice, offers, isFavorite } = point;
+  const eventDate = dayjs(dateFrom).format('MMM D');
+  const startTimeFormatted = dayjs(dateFrom).format('HH:mm');
+  const endTimeFormatted = dayjs(dateTo).format('HH:mm');
+  const durationFormatted = calculateEventDuration(dateFrom, dateTo);
 
-  const eventDate = dayjs(startTime).format('MMM D');
-  const startTimeFormatted = dayjs(startTime).format('HH:mm');
-  const endTimeFormatted = dayjs(endTime).format('HH:mm');
-  const durationFormatted = calculateEventDuration(startTime, endTime);
-
-  const offersTemplate = (offers && offers.length)
+  // Проверяем, есть ли офферы перед рендерингом
+  const offersTemplate = Array.isArray(offers) && offers.length > 0
     ? `<ul class="event__selected-offers">
-        ${offers.map((offer) => `
-          <li class="event__offer">
-            <span class="event__offer-title">${offer.title}</span>
-            +€${offer.price}
-          </li>
-        `).join('')}
+        ${offers.filter((offer) => offer.isSelected).map((offer) => `
+            <li class="event__offer">
+              <span class="event__offer-title">${offer.title}</span>
+              &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
+            </li>
+          `).join('')}
       </ul>`
-    : '';
+    : ''; // Если офферов нет, не рендерим блок
 
   const favoriteClass = isFavorite ? 'event__favorite-btn--active' : '';
 
   return `
     <li class="trip-events__item">
       <div class="event">
-        <time class="event__date" datetime="${startTime}">${eventDate}</time>
+        <time class="event__date" datetime="${dateFrom}">${eventDate}</time>
         <div class="event__type">
-          <img class="event__type-icon" width="42" height="42" src="img/icons/${eventType}.png" alt="Event type icon">
+          <img class="event__type-icon" width="42" height="42" src="img/icons/${type.toLowerCase()}.png" alt="Event type icon">
         </div>
-        <h3 class="event__title">${eventType} ${destination?.name || 'Unknown'}</h3>
+        <h3 class="event__title">${type} ${destination.name}</h3>
 
         <div class="event__schedule">
           <p class="event__time">
-            <time class="event__start-time" datetime="${startTime}">${startTimeFormatted}</time>
+            <time class="event__start-time" datetime="${dateFrom}">${startTimeFormatted}</time>
             &mdash;
-            <time class="event__end-time" datetime="${endTime}">${endTimeFormatted}</time>
+            <time class="event__end-time" datetime="${dateTo}">${endTimeFormatted}</time>
           </p>
           <p class="event__duration">${durationFormatted}</p>
         </div>
 
         <p class="event__price">
-          €&nbsp;<span class="event__price-value">${price ?? 0}</span>
+          &euro;&nbsp;<span class="event__price-value">${basePrice}</span>
         </p>
 
-        ${offersTemplate}
+        ${offersTemplate} <!-- ✅ Теперь блок рендерится только если есть офферы -->
 
         <button class="event__favorite-btn ${favoriteClass}" type="button">
           <span class="visually-hidden">Add to favorite</span>
@@ -70,13 +82,13 @@ function createEventPointTemplate(event) {
 }
 
 export default class EventPointView {
-  constructor(event) {
-    this.event = event;
+  constructor(point) {
     this.element = null;
+    this.point = point;
   }
 
   getTemplate() {
-    return createEventPointTemplate(this.event);
+    return createEventPointTemplate(this.point);
   }
 
   getElement() {
