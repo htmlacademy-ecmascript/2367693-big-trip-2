@@ -14,22 +14,53 @@ export default class TripPresenter {
     this.tripEventsElement = tripEventsElement;
   }
 
+  // 🔹 Для формы: передаёт offers как id, а allOffers — с флагами
+  enrichEventForForm(event) {
+    const allOffers = this.tripEventModel.getOffersByType(event.type);
+    const selectedOfferIds = event.offers || [];
+
+    const allOffersWithSelection = allOffers.map((offer) => ({
+      ...offer,
+      isSelected: selectedOfferIds.includes(offer.id),
+    }));
+
+    return {
+      ...event,
+      allOffers: allOffersWithSelection,
+    };
+  }
+
+  // 🔹 Для поинтов: преобразует offers в офферы с флагом isSelected
+  enrichEventForPoint(event) {
+    const allOffers = this.tripEventModel.getOffersByType(event.type);
+    const selectedOfferIds = event.offers || [];
+
+    const selectedOffers = allOffers
+      .filter((offer) => selectedOfferIds.includes(offer.id))
+      .map((offer) => ({
+        ...offer,
+        isSelected: true,
+      }));
+
+    return {
+      ...event,
+      offers: selectedOffers,
+    };
+  }
+
   init() {
-    const tripEvents = this.tripEventModel.getPoints();
+    let tripEvents = this.tripEventModel.getPoints();
 
-    const routeTitle = tripEvents.length > 0
-      ? tripEvents.sort((a, b) => a.dateFrom - b.dateFrom).map((event) => event.destination?.name || 'Unknown').join(' — ')
-      : 'No destinations';
+    if (tripEvents.length === 0) {
+      return;
+    }
 
-    const startDate = tripEvents.length > 0
-      ? dayjs(tripEvents.reduce((min, event) => event.dateFrom < min ? event.dateFrom : min, tripEvents[0].dateFrom)).format('DD MMM')
-      : null;
+    tripEvents = tripEvents.sort((a, b) => a.dateFrom - b.dateFrom);
 
-    const endDate = tripEvents.length > 0
-      ? dayjs(tripEvents.reduce((max, event) => event.dateTo > max ? event.dateTo : max, tripEvents[0].dateTo)).format('DD MMM')
-      : null;
-
-    const tripDates = startDate && endDate ? `${startDate} — ${endDate}` : '';
+    const routeTitle = tripEvents.map((event) => event.destination.name).join(' — ');
+    const startDate = dayjs(tripEvents[0].dateFrom).format('DD MMM');
+    const endDate = dayjs(tripEvents[tripEvents.length - 1].dateTo).format('DD MMM');
+    const tripDates = `${startDate} — ${endDate}`;
     const totalPrice = this.tripEventModel.getTotalPrice();
 
     const tripInfoComponent = new TripInfoView(routeTitle, tripDates, totalPrice);
@@ -43,41 +74,25 @@ export default class TripPresenter {
 
     const eventsList = this.tripEventsElement.querySelector('.trip-events__list');
 
+    // Форма — enrich для allOffers
+    const firstEvent = this.enrichEventForForm(tripEvents[0]);
+    const eventTypes = this.tripEventModel.getOfferTypes(); //типы событий
+
     const eventFormItem = document.createElement('li');
     eventFormItem.classList.add('trip-events__item');
-
-    const firstTripEvent = tripEvents.length > 0 ? JSON.parse(JSON.stringify(tripEvents[0])) : null;
-
-    const firstTripOffers = firstTripEvent ? this.tripEventModel.getOffersByType(firstTripEvent.type)
-      ?.map((offer) => ({
-        ...offer,
-        isSelected: Array.isArray(firstTripEvent.offers) &&
-          firstTripEvent.offers.some((id) => String(id).trim() === String(offer.id).trim())
-      })) || [] : [];
-
     eventFormItem.append(
       new EventFormView({
         mode: 'edit',
-        offers: firstTripOffers,
-        destination: firstTripEvent?.destination || { name: 'Unknown', pictures: [] },
-        dateFrom: firstTripEvent?.dateFrom || dayjs().toISOString(),
-        dateTo: firstTripEvent?.dateTo || dayjs().add(1, 'day').toISOString(),
-        availableDestinations: this.tripEventModel.destinations,
-        availableTypes: this.tripEventModel.getOfferTypes()
+        event: firstEvent,
+        eventTypes, //передаём в форму
       }).getElement()
     );
     render(eventFormItem, eventsList, RenderPosition.AFTERBEGIN);
 
+    //Остальные точки — enrich offers для рендера
     tripEvents.forEach((tripEvent) => {
-      const rawOffers = this.tripEventModel.getOffersByType(tripEvent.type);
-      const offers = Array.isArray(rawOffers)
-        ? rawOffers.map((tripOffer) => ({
-          ...tripOffer,
-          isSelected: tripEvent.offers.map((eventOffer) => String(eventOffer.id)).includes(String(tripOffer.id).trim())
-        }))
-        : [];
-
-      render(new EventPointView({ ...tripEvent, destination: tripEvent.destination, offers }).getElement(), eventsList, RenderPosition.BEFOREEND);
+      const enrichedEvent = this.enrichEventForPoint(tripEvent);
+      render(new EventPointView(enrichedEvent).getElement(), eventsList, RenderPosition.BEFOREEND);
     });
   }
 }

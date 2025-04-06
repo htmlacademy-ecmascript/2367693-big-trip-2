@@ -2,12 +2,11 @@ import { createElement } from '../render.js';
 import { EventFormMode } from '../const.js';
 import dayjs from 'dayjs';
 
-// Функция для генерации списка типов событий
-function createEventTypeListTemplate(currentType, availableTypes) {
-  const normalizedCurrentType = currentType.toLowerCase();
-  return availableTypes.map((type) => {
+// Генерация списка всех типов событий
+function createEventTypeListTemplate(currentType, eventTypes = []) {
+  return eventTypes.map((type) => {
     const lowerType = type.toLowerCase().replace(/\s+/g, '-');
-    const isChecked = (lowerType === normalizedCurrentType) ? 'checked' : '';
+    const isChecked = type === currentType;
 
     return `
       <div class="event__type-item">
@@ -17,41 +16,51 @@ function createEventTypeListTemplate(currentType, availableTypes) {
           type="radio"
           name="event-type"
           value="${type}"
-          ${isChecked}
+          ${isChecked ? 'checked' : ''}
         >
         <label class="event__type-label event__type-label--${lowerType}" for="event-type-${lowerType}-1">
-          ${type}
+          ${type.charAt(0).toUpperCase() + type.slice(1)}
         </label>
       </div>
     `;
   }).join('');
 }
 
-// Функция для генерации списка доступных предложений (offers)
-function createOffersTemplate(offers) {
-  if (!offers || offers.length === 0) {
+// Генерация офферов
+function createOffersTemplate(selectedOfferIds, allOffers) {
+  if (!allOffers || allOffers.length === 0) {
     return '';
   }
+
+  const selectedIds = selectedOfferIds.map(String);
 
   return `
     <section class="event__section event__section--offers">
       <h3 class="event__section-title event__section-title--offers">Offers</h3>
       <div class="event__available-offers">
-        ${offers.map((offer) => `
-          <div class="event__offer-selector">
-            <input class="event__offer-checkbox visually-hidden" id="event-offer-${offer.id}" type="checkbox" name="event-offer" ${offer.isSelected ? 'checked' : ''}>
-            <label class="event__offer-label" for="event-offer-${offer.id}">
-              <span class="event__offer-title">${offer.title}</span>
-              &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
-            </label>
-          </div>
-        `).join('')}
+        ${allOffers.map((offer) => {
+    const isChecked = selectedIds.includes(String(offer.id));
+    return `
+            <div class="event__offer-selector">
+              <input
+                class="event__offer-checkbox visually-hidden"
+                id="event-offer-${offer.id}"
+                type="checkbox"
+                name="event-offer"
+                ${isChecked ? 'checked' : ''}>
+              <label class="event__offer-label" for="event-offer-${offer.id}">
+                <span class="event__offer-title">${offer.title}</span>
+                &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
+              </label>
+            </div>
+          `;
+  }).join('')}
       </div>
     </section>
   `;
 }
 
-// Функция для рендеринга фотографий
+// Генерация фото
 function createPhotosTemplate(pictures) {
   if (!pictures || pictures.length === 0) {
     return '';
@@ -68,14 +77,40 @@ function createPhotosTemplate(pictures) {
   `;
 }
 
-// Функция рендеринга шаблона формы
-function createEventFormTemplate({ mode, type, offers, destination, dateFrom, dateTo, availableTypes, availableDestinations }) {
+// Генерация описания
+function createDestinationTemplate(destination) {
+  const hasDescription = Boolean(destination?.description);
+  const hasPictures = Array.isArray(destination?.pictures) && destination.pictures.length > 0;
+
+  if (!hasDescription && !hasPictures) {
+    return '';
+  }
+
+  return `
+    <section class="event__section event__section--destination">
+      <h3 class="event__section-title event__section-title--destination">Destination</h3>
+      ${hasDescription ? `<p class="event__destination-description">${destination.description}</p>` : ''}
+      ${hasPictures ? createPhotosTemplate(destination.pictures) : ''}
+    </section>
+  `;
+}
+
+// Шаблон формы
+function createEventFormTemplate(event, mode, eventTypes = []) {
+  const {
+    type,
+    destination,
+    dateFrom,
+    dateTo,
+    offers = [],
+    allOffers = [],
+  } = event;
+
   const isEdit = mode === EventFormMode.EDIT;
   const formClass = isEdit ? 'event event--edit' : 'event event--new';
   const lowerType = type.toLowerCase().replace(/\s+/g, '-');
-
-  const formattedStartTime = dateFrom ? dayjs(dateFrom).format('DD/MM/YY HH:mm') : '';
-  const formattedEndTime = dateTo ? dayjs(dateTo).format('DD/MM/YY HH:mm') : '';
+  const formattedStartTime = dayjs(dateFrom).format('DD/MM/YY HH:mm');
+  const formattedEndTime = dayjs(dateTo).format('DD/MM/YY HH:mm');
 
   return `
     <form class="${formClass}" action="#" method="post">
@@ -90,19 +125,15 @@ function createEventFormTemplate({ mode, type, offers, destination, dateFrom, da
           <div class="event__type-list">
             <fieldset class="event__type-group">
               <legend class="visually-hidden">Event type</legend>
-              ${createEventTypeListTemplate(type, availableTypes)}
+              ${createEventTypeListTemplate(type, eventTypes)}
             </fieldset>
           </div>
         </div>
 
         <div class="event__field-group event__field-group--destination">
-          <label class="event__label event__type-output" for="event-destination-1">
-            ${type}
-          </label>
+          <label class="event__label event__type-output" for="event-destination-1">${type}</label>
           <input class="event__input event__input--destination" id="event-destination-1" type="text" name="event-destination" value="${destination?.name || ''}" list="destination-list-1">
-          <datalist id="destination-list-1">
-            ${availableDestinations.map((dest) => `<option value="${dest.name}"></option>`).join('')}
-          </datalist>
+          <datalist id="destination-list-1"></datalist>
         </div>
 
         <div class="event__field-group event__field-group--time">
@@ -117,37 +148,24 @@ function createEventFormTemplate({ mode, type, offers, destination, dateFrom, da
       </header>
 
       <section class="event__details">
-        ${createOffersTemplate(offers)}
-        ${createPhotosTemplate(destination?.pictures || [])}
+        ${createOffersTemplate(offers, allOffers)}
+        ${createDestinationTemplate(destination)}
       </section>
     </form>
   `;
 }
 
+// Компонент
 export default class EventFormView {
-  constructor({ mode = EventFormMode.CREATE, type = 'Flight', offers = [], destination = null, dateFrom = null, dateTo = null, availableTypes = [], availableDestinations = [] } = {}) {
+  constructor({ event, mode = EventFormMode.CREATE, eventTypes = [] }) {
+    this.event = event;
     this.mode = mode;
-    this.type = type;
-    this.offers = offers;
-    this.destination = destination;
-    this.dateFrom = dateFrom;
-    this.dateTo = dateTo;
-    this.availableTypes = availableTypes;
-    this.availableDestinations = availableDestinations;
+    this.eventTypes = eventTypes;
     this.element = null;
   }
 
   getTemplate() {
-    return createEventFormTemplate({
-      mode: this.mode,
-      type: this.type,
-      offers: this.offers,
-      destination: this.destination,
-      dateFrom: this.dateFrom,
-      dateTo: this.dateTo,
-      availableTypes: this.availableTypes,
-      availableDestinations: this.availableDestinations
-    });
+    return createEventFormTemplate(this.event, this.mode, this.eventTypes);
   }
 
   getElement() {

@@ -1,9 +1,9 @@
-import dayjs from 'dayjs';
 import { destinations, offers } from '../mock/trip-event-mock.js';
 
 export default class TripEventModel {
   constructor() {
     this.tripEvents = [];
+    this.offers = offers;
     this._onDataLoaded = null; // обработка загрузки данных
   }
 
@@ -11,11 +11,7 @@ export default class TripEventModel {
     this.tripEvents = points.map((event) => ({
       ...event,
       destination: this.getDestinationById(event.destination),
-      offers: this.getOffersByType(event.type).filter((offer) => event.offers.includes(offer.id)),
-      isFavorite: event.isFavorite ?? false,
-      basePrice: event.basePrice,
-      dateFrom: dayjs(event.dateFrom).isValid() ? dayjs(event.dateFrom) : dayjs(),
-      dateTo: dayjs(event.dateTo).isValid() ? dayjs(event.dateTo) : dayjs(),
+      // event.offers оставляем как есть — массив id
     }));
 
     if (this._onDataLoaded) {
@@ -32,23 +28,29 @@ export default class TripEventModel {
   }
 
   getDestinationById(id) {
-    return destinations.find((destination) => destination.id === String(id)) || { name: 'Unknown', pictures: [] };
-  }
-
-  getOffersByType(type) {
-    const offerCategory = offers.find((offerGroup) => offerGroup.type === type);
-    return offerCategory ? offerCategory.offers : [];
+    return destinations.find((destination) => destination.id === id);
   }
 
   getTotalPrice() {
     return this.tripEvents.reduce((sum, event) => {
-      const offersTotal = event.offers.reduce((total, offer) => total + offer.price, 0);
+      const allOffers = this.getOffersByType(event.type);
+      const selectedOffers = allOffers.filter((offer) => event.offers.includes(offer.id));
+      const offersTotal = selectedOffers.reduce((total, offer) => total + offer.price, 0);
       return sum + event.basePrice + offersTotal;
     }, 0);
   }
 
+  getOffers() {
+    return this.offers;
+  }
+
+  getOffersByType(type) {
+    const foundGroup = this.offers.find((group) => group.type === type);
+    return foundGroup ? foundGroup.offers : [];
+  }
+
   // список всех доступных типов событий
   getOfferTypes() {
-    return offers.map((group) => group.type);
+    return this.offers.map((group) => group.type);
   }
 }

@@ -67,7 +67,7 @@ export const points = [
 export const destinations = [
   {
     id: 'cfe342e4-2be9-493f-832c-0c04e314e641',
-    description: '',
+    description: 'The code works',
     name: 'Frankfurt',
     pictures: [
       {
@@ -82,7 +82,7 @@ export const destinations = [
   },
   {
     id: '35596f6b-14ce-4f05-926c-e53f230828f1',
-    description: '',
+    description: 'The code works',
     name: 'Rome',
     pictures: [
       {
@@ -165,7 +165,7 @@ export const destinations = [
   },
   {
     id: 'a314dd3b-980f-4fd2-a937-3dd1ff33c5dc',
-    description: '',
+    description: 'The code works',
     name: 'Oslo',
     pictures: [
       {
@@ -195,7 +195,7 @@ export const destinations = [
   },
   {
     id: 'bc4a5cc7-10c8-45a6-895d-2e69818594ca',
-    description: '',
+    description: 'The code works',
     name: 'Paris',
     pictures: [
       {
@@ -210,7 +210,7 @@ export const destinations = [
   },
   {
     id: 'f842c4cd-a050-4d8d-842a-21099c8805bb',
-    description: '',
+    description: 'The code works',
     name: 'Saint Petersburg',
     pictures: [
       {
@@ -407,6 +407,11 @@ export const offers = [
         id: '305e5fc3-8800-4c6b-bd2d-7fede8c7951a',
         title: 'With air conditioning',
         price: 60
+      },
+      {
+        id: 'cec77c24-f1e1-4d28-8a87-3d7861954866',
+        title: 'Choose live music',
+        price: 127
       }
     ]
   },
