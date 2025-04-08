@@ -1,8 +1,8 @@
-import { createElement } from '../render.js';
+import AbstractView from '../framework/view/abstract-view.js';
 import { EventFormMode } from '../const.js';
 import dayjs from 'dayjs';
 
-// Генерация списка всех типов событий
+// Функции шаблонов
 function createEventTypeListTemplate(currentType, eventTypes = []) {
   return eventTypes.map((type) => {
     const lowerType = type.toLowerCase().replace(/\s+/g, '-');
@@ -16,8 +16,7 @@ function createEventTypeListTemplate(currentType, eventTypes = []) {
           type="radio"
           name="event-type"
           value="${type}"
-          ${isChecked ? 'checked' : ''}
-        >
+          ${isChecked ? 'checked' : ''}>
         <label class="event__type-label event__type-label--${lowerType}" for="event-type-${lowerType}-1">
           ${type.charAt(0).toUpperCase() + type.slice(1)}
         </label>
@@ -26,28 +25,28 @@ function createEventTypeListTemplate(currentType, eventTypes = []) {
   }).join('');
 }
 
-// Генерация офферов
+function createDestinationOptionsTemplate(destinations = []) {
+  return destinations.map((dest) => `<option value="${dest.name}"></option>`).join('');
+}
+
 function createOffersTemplate(selectedOfferIds, allOffers) {
   if (!allOffers || allOffers.length === 0) {
     return '';
   }
-
-  const selectedIds = selectedOfferIds.map(String);
 
   return `
     <section class="event__section event__section--offers">
       <h3 class="event__section-title event__section-title--offers">Offers</h3>
       <div class="event__available-offers">
         ${allOffers.map((offer) => {
-    const isChecked = selectedIds.includes(String(offer.id));
+    const isChecked = selectedOfferIds.includes(offer.id);
     return `
             <div class="event__offer-selector">
-              <input
-                class="event__offer-checkbox visually-hidden"
-                id="event-offer-${offer.id}"
-                type="checkbox"
-                name="event-offer"
-                ${isChecked ? 'checked' : ''}>
+              <input class="event__offer-checkbox visually-hidden"
+                     id="event-offer-${offer.id}"
+                     type="checkbox"
+                     name="event-offer"
+                     ${isChecked ? 'checked' : ''}>
               <label class="event__offer-label" for="event-offer-${offer.id}">
                 <span class="event__offer-title">${offer.title}</span>
                 &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
@@ -60,7 +59,6 @@ function createOffersTemplate(selectedOfferIds, allOffers) {
   `;
 }
 
-// Генерация фото
 function createPhotosTemplate(pictures) {
   if (!pictures || pictures.length === 0) {
     return '';
@@ -77,33 +75,27 @@ function createPhotosTemplate(pictures) {
   `;
 }
 
-// Генерация описания
 function createDestinationTemplate(destination) {
-  const hasDescription = Boolean(destination?.description);
-  const hasPictures = Array.isArray(destination?.pictures) && destination.pictures.length > 0;
-
-  if (!hasDescription && !hasPictures) {
+  if (!destination || (!destination.description && (!destination.pictures || destination.pictures.length === 0))) {
     return '';
   }
 
   return `
     <section class="event__section event__section--destination">
       <h3 class="event__section-title event__section-title--destination">Destination</h3>
-      ${hasDescription ? `<p class="event__destination-description">${destination.description}</p>` : ''}
-      ${hasPictures ? createPhotosTemplate(destination.pictures) : ''}
+      <p class="event__destination-description">${destination.description || ''}</p>
+      ${createPhotosTemplate(destination.pictures)}
     </section>
   `;
 }
 
-// Шаблон формы
-function createEventFormTemplate(event, mode, eventTypes = []) {
+function createEventFormTemplate(event, mode, offers = [], destinations = []) {
   const {
     type,
     destination,
     dateFrom,
     dateTo,
-    offers = [],
-    allOffers = [],
+    offers: selectedOfferIds = [],
   } = event;
 
   const isEdit = mode === EventFormMode.EDIT;
@@ -111,6 +103,9 @@ function createEventFormTemplate(event, mode, eventTypes = []) {
   const lowerType = type.toLowerCase().replace(/\s+/g, '-');
   const formattedStartTime = dayjs(dateFrom).format('DD/MM/YY HH:mm');
   const formattedEndTime = dayjs(dateTo).format('DD/MM/YY HH:mm');
+
+  const currentOffers = offers.find((group) => group.type === type)?.offers || [];
+  const eventTypes = offers.map((group) => group.type);
 
   return `
     <form class="${formClass}" action="#" method="post">
@@ -133,7 +128,9 @@ function createEventFormTemplate(event, mode, eventTypes = []) {
         <div class="event__field-group event__field-group--destination">
           <label class="event__label event__type-output" for="event-destination-1">${type}</label>
           <input class="event__input event__input--destination" id="event-destination-1" type="text" name="event-destination" value="${destination?.name || ''}" list="destination-list-1">
-          <datalist id="destination-list-1"></datalist>
+          <datalist id="destination-list-1">
+            ${createDestinationOptionsTemplate(destinations)}
+          </datalist>
         </div>
 
         <div class="event__field-group event__field-group--time">
@@ -148,34 +145,42 @@ function createEventFormTemplate(event, mode, eventTypes = []) {
       </header>
 
       <section class="event__details">
-        ${createOffersTemplate(offers, allOffers)}
+        ${createOffersTemplate(selectedOfferIds, currentOffers)}
         ${createDestinationTemplate(destination)}
       </section>
     </form>
   `;
 }
 
-// Компонент
-export default class EventFormView {
-  constructor({ event, mode = EventFormMode.CREATE, eventTypes = [] }) {
-    this.event = event;
-    this.mode = mode;
-    this.eventTypes = eventTypes;
-    this.element = null;
+export default class EventFormView extends AbstractView {
+  #event;
+  #mode;
+  #offers;
+  #destinations;
+
+  constructor({ event, mode = EventFormMode.CREATE, offers = [], destinations = [] }) {
+    super();
+    this.#event = event;
+    this.#mode = mode;
+    this.#offers = offers;
+    this.#destinations = destinations;
   }
 
-  getTemplate() {
-    return createEventFormTemplate(this.event, this.mode, this.eventTypes);
+  get template() {
+    return createEventFormTemplate(this.#event, this.#mode, this.#offers, this.#destinations);
   }
 
-  getElement() {
-    if (!this.element) {
-      this.element = createElement(this.getTemplate());
+  setCloseClickHandler(callback) {
+    const button = this.element.querySelector('.event__rollup-btn');
+    if (button) {
+      button.addEventListener('click', callback);
     }
-    return this.element;
   }
 
-  removeElement() {
-    this.element = null;
+  setFormSubmitHandler(callback) {
+    const formElement = this.element.querySelector('form');
+    if (formElement) {
+      formElement.addEventListener('submit', callback);
+    }
   }
 }

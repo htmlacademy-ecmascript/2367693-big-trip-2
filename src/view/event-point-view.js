@@ -1,26 +1,20 @@
-import { createElement } from '../render.js';
+import AbstractView from '../framework/view/abstract-view.js';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 
 dayjs.extend(duration);
 
-// Функция вычисления продолжительности события
 function calculateEventDuration(dateFrom, dateTo) {
-  const diff = dayjs(dateTo).diff(dayjs(dateFrom), 'minute');
+  const diffInMinutes = dayjs(dateTo).diff(dayjs(dateFrom), 'minute');
+  const dur = dayjs.duration(diffInMinutes, 'minutes');
 
-  if (diff < 60) {
-    return `${diff}M`;
-  } else if (diff < 1440) {
-    return `${Math.floor(diff / 60)}H ${diff % 60}M`;
-  } else {
-    const days = Math.floor(diff / 1440);
-    const hours = Math.floor((diff % 1440) / 60);
-    const minutes = diff % 60;
-    return `${days}D ${hours}H ${minutes}M`;
-  }
+  const days = dur.days();
+  const hours = dur.hours();
+  const minutes = dur.minutes();
+
+  return `${days > 0 ? `${days}D ` : ''}${hours > 0 ? `${hours}H ` : ''}${minutes}M`;
 }
 
-// Функция генерации шаблона точки маршрута
 function createEventPointTemplate(point) {
   const { type, destination, dateFrom, dateTo, basePrice, offers, isFavorite } = point;
   const eventDate = dayjs(dateFrom).format('MMM D');
@@ -28,17 +22,16 @@ function createEventPointTemplate(point) {
   const endTimeFormatted = dayjs(dateTo).format('HH:mm');
   const durationFormatted = calculateEventDuration(dateFrom, dateTo);
 
-  // Проверяем, есть ли офферы перед рендерингом
   const offersTemplate = Array.isArray(offers) && offers.length > 0
     ? `<ul class="event__selected-offers">
         ${offers.filter((offer) => offer.isSelected).map((offer) => `
-            <li class="event__offer">
-              <span class="event__offer-title">${offer.title}</span>
-              &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
-            </li>
-          `).join('')}
+          <li class="event__offer">
+            <span class="event__offer-title">${offer.title}</span>
+            &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
+          </li>
+        `).join('')}
       </ul>`
-    : ''; // Если офферов нет, не рендерим блок
+    : '';
 
   const favoriteClass = isFavorite ? 'event__favorite-btn--active' : '';
 
@@ -64,7 +57,7 @@ function createEventPointTemplate(point) {
           &euro;&nbsp;<span class="event__price-value">${basePrice}</span>
         </p>
 
-        ${offersTemplate} <!-- ✅ Теперь блок рендерится только если есть офферы -->
+        ${offersTemplate}
 
         <button class="event__favorite-btn ${favoriteClass}" type="button">
           <span class="visually-hidden">Add to favorite</span>
@@ -81,24 +74,29 @@ function createEventPointTemplate(point) {
   `;
 }
 
-export default class EventPointView {
+export default class EventPointView extends AbstractView {
+  #point;
+  #onEditClick;
+
   constructor(point) {
-    this.element = null;
-    this.point = point;
+    super();
+    this.#point = point;
   }
 
-  getTemplate() {
-    return createEventPointTemplate(this.point);
+  get template() {
+    return createEventPointTemplate(this.#point);
   }
 
-  getElement() {
-    if (!this.element) {
-      this.element = createElement(this.getTemplate());
+  setEditClickHandler(callback) {
+    this.#onEditClick = callback;
+    const button = this.element.querySelector('.event__rollup-btn');
+    if (button) {
+      button.addEventListener('click', this.#editClickHandler);
     }
-    return this.element;
   }
 
-  removeElement() {
-    this.element = null;
-  }
+  #editClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onEditClick();
+  };
 }

@@ -31,6 +31,10 @@ export default class TripEventModel {
     return destinations.find((destination) => destination.id === id);
   }
 
+  getDestinations() {
+    return destinations;
+  }
+
   getTotalPrice() {
     return this.tripEvents.reduce((sum, event) => {
       const allOffers = this.getOffersByType(event.type);
@@ -40,6 +44,14 @@ export default class TripEventModel {
     }, 0);
   }
 
+  /**
+   * Возвращает массив всех офферов по типам:
+   * [
+   *   { type: 'taxi', offers: [...] },
+   *   { type: 'flight', offers: [...] },
+   *   ...
+   * ]
+   */
   getOffers() {
     return this.offers;
   }
@@ -47,10 +59,5 @@ export default class TripEventModel {
   getOffersByType(type) {
     const foundGroup = this.offers.find((group) => group.type === type);
     return foundGroup ? foundGroup.offers : [];
-  }
-
-  // список всех доступных типов событий
-  getOfferTypes() {
-    return this.offers.map((group) => group.type);
   }
 }

@@ -4,33 +4,18 @@ import EventFormView from '../view/event-form-view.js';
 import EventPointView from '../view/event-point-view.js';
 import TripInfoView from '../view/trip-info-view.js';
 import TripEventsView from '../view/trip-events-view.js';
-import { render, RenderPosition } from '../render.js';
+import { render, replace, RenderPosition } from '../framework/render.js';
 import dayjs from 'dayjs';
 
 export default class TripPresenter {
+  #currentFormComponent = null; // Текущее состояние формы
+
   constructor(tripEventModel, tripMainElement, tripEventsElement) {
     this.tripEventModel = tripEventModel;
     this.tripMainElement = tripMainElement;
     this.tripEventsElement = tripEventsElement;
   }
 
-  // 🔹 Для формы: передаёт offers как id, а allOffers — с флагами
-  enrichEventForForm(event) {
-    const allOffers = this.tripEventModel.getOffersByType(event.type);
-    const selectedOfferIds = event.offers || [];
-
-    const allOffersWithSelection = allOffers.map((offer) => ({
-      ...offer,
-      isSelected: selectedOfferIds.includes(offer.id),
-    }));
-
-    return {
-      ...event,
-      allOffers: allOffersWithSelection,
-    };
-  }
-
-  // 🔹 Для поинтов: преобразует offers в офферы с флагом isSelected
   enrichEventForPoint(event) {
     const allOffers = this.tripEventModel.getOffersByType(event.type);
     const selectedOfferIds = event.offers || [];
@@ -70,29 +55,65 @@ export default class TripPresenter {
     render(new TripFiltersView(), tripControlsElement, RenderPosition.BEFOREEND);
 
     render(new SortView(), this.tripEventsElement, RenderPosition.BEFOREEND);
-    render(new TripEventsView(), this.tripEventsElement, RenderPosition.BEFOREEND);
+    const tripEventsListComponent = new TripEventsView();
+    render(tripEventsListComponent, this.tripEventsElement, RenderPosition.BEFOREEND);
 
-    const eventsList = this.tripEventsElement.querySelector('.trip-events__list');
+    const destinations = this.tripEventModel.getDestinations();
+    const allOffers = this.tripEventModel.getOffers();
 
-    // Форма — enrich для allOffers
-    const firstEvent = this.enrichEventForForm(tripEvents[0]);
-    const eventTypes = this.tripEventModel.getOfferTypes(); //типы событий
-
-    const eventFormItem = document.createElement('li');
-    eventFormItem.classList.add('trip-events__item');
-    eventFormItem.append(
-      new EventFormView({
+    for (const event of tripEvents) {
+      const enrichedEvent = this.enrichEventForPoint(event);
+      const eventPointComponent = new EventPointView(enrichedEvent);
+      const eventFormComponent = new EventFormView({
         mode: 'edit',
-        event: firstEvent,
-        eventTypes, //передаём в форму
-      }).getElement()
-    );
-    render(eventFormItem, eventsList, RenderPosition.AFTERBEGIN);
+        event,
+        offers: allOffers,
+        destinations,
+      });
 
-    //Остальные точки — enrich offers для рендера
-    tripEvents.forEach((tripEvent) => {
-      const enrichedEvent = this.enrichEventForPoint(tripEvent);
-      render(new EventPointView(enrichedEvent).getElement(), eventsList, RenderPosition.BEFOREEND);
-    });
+      const replaceFormToPoint = () => {
+        const formElement = eventFormComponent.element;
+        if (formElement && formElement.parentElement) {
+          replace(eventPointComponent, eventFormComponent);
+        }
+        this.#currentFormComponent = null;
+      };
+
+      eventPointComponent.setEditClickHandler(() => {
+        // Закрываем предыдущую форму, если она была
+        if (this.#currentFormComponent) {
+          const prevFormElement = this.#currentFormComponent.element;
+          if (prevFormElement && prevFormElement.parentElement) {
+            replace(this.#currentFormComponent._pointComponent, this.#currentFormComponent);
+          }
+        }
+
+        replace(eventFormComponent, eventPointComponent);
+        this.#currentFormComponent = eventFormComponent;
+        eventFormComponent._pointComponent = eventPointComponent; // сохраняем ссылку для замены назад
+
+        const escKeyDownHandler = (evt) => {
+          if (evt.key === 'Escape') {
+            evt.preventDefault();
+            replaceFormToPoint();
+            document.removeEventListener('keydown', escKeyDownHandler);
+          }
+        };
+
+        document.addEventListener('keydown', escKeyDownHandler);
+
+        eventFormComponent.setCloseClickHandler(() => {
+          replaceFormToPoint();
+          document.removeEventListener('keydown', escKeyDownHandler);
+        });
+
+        eventFormComponent.setFormSubmitHandler(() => {
+          replaceFormToPoint();
+          document.removeEventListener('keydown', escKeyDownHandler);
+        });
+      });
+
+      render(eventPointComponent, tripEventsListComponent.element, RenderPosition.BEFOREEND);
+    }
   }
 }
