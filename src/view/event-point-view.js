@@ -1,28 +1,33 @@
-import { createElement } from '../render.js';
+import AbstractView from '../framework/view/abstract-view.js';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
 
 dayjs.extend(duration);
 
-function calculateEventDuration(startTime, endTime) {
-  const diff = dayjs(endTime).diff(dayjs(startTime), 'minute');
-  return dayjs.duration(diff, 'minutes').format('H[H] mm[M]');
+function calculateEventDuration(dateFrom, dateTo) {
+  const diffInMinutes = dayjs(dateTo).diff(dayjs(dateFrom), 'minute');
+  const dur = dayjs.duration(diffInMinutes, 'minutes');
+
+  const days = dur.days();
+  const hours = dur.hours();
+  const minutes = dur.minutes();
+
+  return `${days > 0 ? `${days}D ` : ''}${hours > 0 ? `${hours}H ` : ''}${minutes}M`;
 }
 
-function createEventPointTemplate(event) {
-  const { eventType, destination, startTime, endTime, price, offers, isFavorite } = event;
+function createEventPointTemplate(point) {
+  const { type, destination, dateFrom, dateTo, basePrice, offers, isFavorite } = point;
+  const eventDate = dayjs(dateFrom).format('MMM D');
+  const startTimeFormatted = dayjs(dateFrom).format('HH:mm');
+  const endTimeFormatted = dayjs(dateTo).format('HH:mm');
+  const durationFormatted = calculateEventDuration(dateFrom, dateTo);
 
-  const eventDate = dayjs(startTime).format('MMM D');
-  const startTimeFormatted = dayjs(startTime).format('HH:mm');
-  const endTimeFormatted = dayjs(endTime).format('HH:mm');
-  const durationFormatted = calculateEventDuration(startTime, endTime);
-
-  const offersTemplate = (offers && offers.length)
+  const offersTemplate = Array.isArray(offers) && offers.length > 0
     ? `<ul class="event__selected-offers">
-        ${offers.map((offer) => `
+        ${offers.filter((offer) => offer.isSelected).map((offer) => `
           <li class="event__offer">
             <span class="event__offer-title">${offer.title}</span>
-            +€${offer.price}
+            &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
           </li>
         `).join('')}
       </ul>`
@@ -33,23 +38,23 @@ function createEventPointTemplate(event) {
   return `
     <li class="trip-events__item">
       <div class="event">
-        <time class="event__date" datetime="${startTime}">${eventDate}</time>
+        <time class="event__date" datetime="${dateFrom}">${eventDate}</time>
         <div class="event__type">
-          <img class="event__type-icon" width="42" height="42" src="img/icons/${eventType}.png" alt="Event type icon">
+          <img class="event__type-icon" width="42" height="42" src="img/icons/${type.toLowerCase()}.png" alt="Event type icon">
         </div>
-        <h3 class="event__title">${eventType} ${destination?.name || 'Unknown'}</h3>
+        <h3 class="event__title">${type} ${destination.name}</h3>
 
         <div class="event__schedule">
           <p class="event__time">
-            <time class="event__start-time" datetime="${startTime}">${startTimeFormatted}</time>
+            <time class="event__start-time" datetime="${dateFrom}">${startTimeFormatted}</time>
             &mdash;
-            <time class="event__end-time" datetime="${endTime}">${endTimeFormatted}</time>
+            <time class="event__end-time" datetime="${dateTo}">${endTimeFormatted}</time>
           </p>
           <p class="event__duration">${durationFormatted}</p>
         </div>
 
         <p class="event__price">
-          €&nbsp;<span class="event__price-value">${price ?? 0}</span>
+          &euro;&nbsp;<span class="event__price-value">${basePrice}</span>
         </p>
 
         ${offersTemplate}
@@ -69,24 +74,29 @@ function createEventPointTemplate(event) {
   `;
 }
 
-export default class EventPointView {
-  constructor(event) {
-    this.event = event;
-    this.element = null;
+export default class EventPointView extends AbstractView {
+  #point;
+  #onEditClick;
+
+  constructor(point) {
+    super();
+    this.#point = point;
   }
 
-  getTemplate() {
-    return createEventPointTemplate(this.event);
+  get template() {
+    return createEventPointTemplate(this.#point);
   }
 
-  getElement() {
-    if (!this.element) {
-      this.element = createElement(this.getTemplate());
+  setEditClickHandler(callback) {
+    this.#onEditClick = callback;
+    const button = this.element.querySelector('.event__rollup-btn');
+    if (button) {
+      button.addEventListener('click', this.#editClickHandler);
     }
-    return this.element;
   }
 
-  removeElement() {
-    this.element = null;
-  }
+  #editClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onEditClick();
+  };
 }

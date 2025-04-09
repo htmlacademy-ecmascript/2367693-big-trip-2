@@ -1,58 +1,63 @@
-import { generateTripEvents } from '../mock/trip-event-mock.js';
-import { TRIP_DESTINATIONS, TRIP_OFFERS } from '../const.js';
-import dayjs from 'dayjs';
+import { destinations, offers } from '../mock/trip-event-mock.js';
 
 export default class TripEventModel {
   constructor() {
-    // Генерируем мок-данные и корректно связываем `destination`, `offers` и `isFavorite`
-    this.tripEvents = generateTripEvents().map((event) => {
-      const destination = TRIP_DESTINATIONS.find((dest) => dest.id === event.destinationId) || {
-        name: 'Unknown',
-        pictures: [{ src: 'https://via.placeholder.com/248x152', description: 'Placeholder image' }] // Заглушка
-      };
-
-      return {
-        ...event,
-        destination,
-        offers: (TRIP_OFFERS[event.eventType] || []).filter((offer) => event.offerIds.includes(offer.id)), // выбираем только нужные офферы
-        isFavorite: event.isFavorite ?? false, // Поддержка избранных событий
-        startTime: dayjs(event.startTime), // Гарантируем корректный формат даты
-        endTime: dayjs(event.endTime), // Гарантируем корректный формат даты
-      };
-    });
+    this.tripEvents = [];
+    this.offers = offers;
+    this._onDataLoaded = null; // обработка загрузки данных
   }
 
-  getTripEvents() {
+  setPoints(points) {
+    this.tripEvents = points.map((event) => ({
+      ...event,
+      destination: this.getDestinationById(event.destination),
+      // event.offers оставляем как есть — массив id
+    }));
+
+    if (this._onDataLoaded) {
+      this._onDataLoaded();
+    }
+  }
+
+  setOnDataLoaded(callback) {
+    this._onDataLoaded = callback;
+  }
+
+  getPoints() {
     return this.tripEvents;
   }
 
+  getDestinationById(id) {
+    return destinations.find((destination) => destination.id === id);
+  }
+
   getDestinations() {
-    return TRIP_DESTINATIONS;
+    return destinations;
   }
 
-  getOffers() {
-    return TRIP_OFFERS;
-  }
-
-  // Метод для подсчета общей стоимости поездки
   getTotalPrice() {
-    return this.tripEvents.reduce((sum, event) => sum + event.price, 0);
+    return this.tripEvents.reduce((sum, event) => {
+      const allOffers = this.getOffersByType(event.type);
+      const selectedOffers = allOffers.filter((offer) => event.offers.includes(offer.id));
+      const offersTotal = selectedOffers.reduce((total, offer) => total + offer.price, 0);
+      return sum + event.basePrice + offersTotal;
+    }, 0);
   }
 
-  // Метод для получения маршрута и дат поездки
-  getRouteInfo() {
-    if (this.tripEvents.length === 0) {
-      return { title: 'No destinations', dates: 'No dates' };
-    }
+  /**
+   * Возвращает массив всех офферов по типам:
+   * [
+   *   { type: 'taxi', offers: [...] },
+   *   { type: 'flight', offers: [...] },
+   *   ...
+   * ]
+   */
+  getOffers() {
+    return this.offers;
+  }
 
-    const sortedEvents = [...this.tripEvents].sort((a, b) => a.startTime - b.startTime);
-    const startCity = sortedEvents[0].destination.name;
-    const endCity = sortedEvents[sortedEvents.length - 1].destination.name;
-    const title = `${startCity} — ${endCity}`;
-
-    const startDate = sortedEvents[0].startTime.format('DD MMM');
-    const endDate = sortedEvents[sortedEvents.length - 1].endTime.format('DD MMM');
-
-    return { title, dates: `${startDate} — ${endDate}` };
+  getOffersByType(type) {
+    const foundGroup = this.offers.find((group) => group.type === type);
+    return foundGroup ? foundGroup.offers : [];
   }
 }
