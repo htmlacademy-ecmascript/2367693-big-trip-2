@@ -1,4 +1,5 @@
 import { destinations, offers } from '../mock/trip-event-mock.js';
+import { getFilters } from '../utils.js';
 
 export default class TripEventModel {
   constructor() {
@@ -7,12 +8,12 @@ export default class TripEventModel {
     this._onDataLoaded = null; // обработка загрузки данных
   }
 
+  /**
+   * Сохраняет точки маршрута
+   * @param {Array} points - массив точек маршрута
+   */
   setPoints(points) {
-    this.tripEvents = points.map((event) => ({
-      ...event,
-      destination: this.getDestinationById(event.destination),
-      // event.offers оставляем как есть — массив id
-    }));
+    this.tripEvents = points;
 
     if (this._onDataLoaded) {
       this._onDataLoaded();
@@ -44,14 +45,6 @@ export default class TripEventModel {
     }, 0);
   }
 
-  /**
-   * Возвращает массив всех офферов по типам:
-   * [
-   *   { type: 'taxi', offers: [...] },
-   *   { type: 'flight', offers: [...] },
-   *   ...
-   * ]
-   */
   getOffers() {
     return this.offers;
   }
@@ -59,5 +52,14 @@ export default class TripEventModel {
   getOffersByType(type) {
     const foundGroup = this.offers.find((group) => group.type === type);
     return foundGroup ? foundGroup.offers : [];
+  }
+
+  /**
+   * Возвращает массив фильтров с флагами активности
+   * @param {string} currentFilterType - активный фильтр
+   * @returns {Array}
+   */
+  getFilters(currentFilterType) {
+    return getFilters(this.getPoints(), currentFilterType);
   }
 }
