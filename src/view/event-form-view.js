@@ -107,6 +107,8 @@ function createEventFormTemplate(event, mode, offers = [], destinations = []) {
   const currentOffers = offers.find((group) => group.type === type)?.offers || [];
   const eventTypes = offers.map((group) => group.type);
 
+  const destinationObj = destinations.find((d) => d.id === destination);
+
   return `
     <form class="${formClass}" action="#" method="post">
       <header class="event__header">
@@ -127,7 +129,7 @@ function createEventFormTemplate(event, mode, offers = [], destinations = []) {
 
         <div class="event__field-group event__field-group--destination">
           <label class="event__label event__type-output" for="event-destination-1">${type}</label>
-          <input class="event__input event__input--destination" id="event-destination-1" type="text" name="event-destination" value="${destination?.name || ''}" list="destination-list-1">
+          <input class="event__input event__input--destination" id="event-destination-1" type="text" name="event-destination" value="${destinationObj?.name || ''}" list="destination-list-1">
           <datalist id="destination-list-1">
             ${createDestinationOptionsTemplate(destinations)}
           </datalist>
@@ -146,7 +148,7 @@ function createEventFormTemplate(event, mode, offers = [], destinations = []) {
 
       <section class="event__details">
         ${createOffersTemplate(selectedOfferIds, currentOffers)}
-        ${createDestinationTemplate(destination)}
+        ${createDestinationTemplate(destinationObj)}
       </section>
     </form>
   `;

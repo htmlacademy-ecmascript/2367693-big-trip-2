@@ -15,8 +15,10 @@ function calculateEventDuration(dateFrom, dateTo) {
   return `${days > 0 ? `${days}D ` : ''}${hours > 0 ? `${hours}H ` : ''}${minutes}M`;
 }
 
-function createEventPointTemplate(point) {
+function createEventPointTemplate(point, destinations) {
   const { type, destination, dateFrom, dateTo, basePrice, offers, isFavorite } = point;
+  const destinationObj = destinations.find((d) => d.id === destination);
+
   const eventDate = dayjs(dateFrom).format('MMM D');
   const startTimeFormatted = dayjs(dateFrom).format('HH:mm');
   const endTimeFormatted = dayjs(dateTo).format('HH:mm');
@@ -42,7 +44,7 @@ function createEventPointTemplate(point) {
         <div class="event__type">
           <img class="event__type-icon" width="42" height="42" src="img/icons/${type.toLowerCase()}.png" alt="Event type icon">
         </div>
-        <h3 class="event__title">${type} ${destination.name}</h3>
+        <h3 class="event__title">${type} ${destinationObj?.name || ''}</h3>
 
         <div class="event__schedule">
           <p class="event__time">
@@ -76,15 +78,17 @@ function createEventPointTemplate(point) {
 
 export default class EventPointView extends AbstractView {
   #point;
+  #destinations;
   #onEditClick;
 
-  constructor(point) {
+  constructor(point, destinations) {
     super();
     this.#point = point;
+    this.#destinations = destinations;
   }
 
   get template() {
-    return createEventPointTemplate(this.#point);
+    return createEventPointTemplate(this.#point, this.#destinations);
   }
 
   setEditClickHandler(callback) {

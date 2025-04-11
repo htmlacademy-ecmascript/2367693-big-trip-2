@@ -4,11 +4,12 @@ import EventFormView from '../view/event-form-view.js';
 import EventPointView from '../view/event-point-view.js';
 import TripInfoView from '../view/trip-info-view.js';
 import TripEventsView from '../view/trip-events-view.js';
+import NoPointsView from '../view/no-points-view.js';
 import { render, replace, RenderPosition } from '../framework/render.js';
-import dayjs from 'dayjs';
+import { filterTypeToCallback } from '../const.js';
 
 export default class TripPresenter {
-  #currentFormComponent = null; // Текущее состояние формы
+  #currentFormComponent = null;
 
   constructor(tripEventModel, tripMainElement, tripEventsElement) {
     this.tripEventModel = tripEventModel;
@@ -34,36 +35,37 @@ export default class TripPresenter {
   }
 
   init() {
-    let tripEvents = this.tripEventModel.getPoints();
+    const currentFilterType = 'everything';
 
-    if (tripEvents.length === 0) {
+    const tripPoints = this.tripEventModel.getPoints();
+    const filteredPoints = tripPoints.filter(filterTypeToCallback[currentFilterType]);
+
+    const tripControlsElement = document.querySelector('.trip-controls__filters');
+    const filters = this.tripEventModel.getFilters(currentFilterType);
+    render(new TripFiltersView(filters), tripControlsElement, RenderPosition.BEFOREEND);
+
+    if (filteredPoints.length === 0) {
+      render(new NoPointsView(currentFilterType), this.tripEventsElement, RenderPosition.BEFOREEND);
       return;
     }
 
-    tripEvents = tripEvents.sort((a, b) => a.dateFrom - b.dateFrom);
+    const sortedPoints = filteredPoints.sort((a, b) => a.dateFrom - b.dateFrom);
 
-    const routeTitle = tripEvents.map((event) => event.destination.name).join(' — ');
-    const startDate = dayjs(tripEvents[0].dateFrom).format('DD MMM');
-    const endDate = dayjs(tripEvents[tripEvents.length - 1].dateTo).format('DD MMM');
-    const tripDates = `${startDate} — ${endDate}`;
+    const destinations = this.tripEventModel.getDestinations();
     const totalPrice = this.tripEventModel.getTotalPrice();
 
-    const tripInfoComponent = new TripInfoView(routeTitle, tripDates, totalPrice);
+    const tripInfoComponent = new TripInfoView(sortedPoints, destinations, totalPrice);
     render(tripInfoComponent, this.tripMainElement, RenderPosition.AFTERBEGIN);
-
-    const tripControlsElement = document.querySelector('.trip-controls__filters');
-    render(new TripFiltersView(), tripControlsElement, RenderPosition.BEFOREEND);
 
     render(new SortView(), this.tripEventsElement, RenderPosition.BEFOREEND);
     const tripEventsListComponent = new TripEventsView();
     render(tripEventsListComponent, this.tripEventsElement, RenderPosition.BEFOREEND);
 
-    const destinations = this.tripEventModel.getDestinations();
     const allOffers = this.tripEventModel.getOffers();
 
-    for (const event of tripEvents) {
+    for (const event of sortedPoints) {
       const enrichedEvent = this.enrichEventForPoint(event);
-      const eventPointComponent = new EventPointView(enrichedEvent);
+      const eventPointComponent = new EventPointView(enrichedEvent, destinations);
       const eventFormComponent = new EventFormView({
         mode: 'edit',
         event,
@@ -80,7 +82,6 @@ export default class TripPresenter {
       };
 
       eventPointComponent.setEditClickHandler(() => {
-        // Закрываем предыдущую форму, если она была
         if (this.#currentFormComponent) {
           const prevFormElement = this.#currentFormComponent.element;
           if (prevFormElement && prevFormElement.parentElement) {
@@ -90,7 +91,7 @@ export default class TripPresenter {
 
         replace(eventFormComponent, eventPointComponent);
         this.#currentFormComponent = eventFormComponent;
-        eventFormComponent._pointComponent = eventPointComponent; // сохраняем ссылку для замены назад
+        eventFormComponent._pointComponent = eventPointComponent;
 
         const escKeyDownHandler = (evt) => {
           if (evt.key === 'Escape') {

@@ -431,3 +431,30 @@ export const offers = [
     ]
   }
 ];
+
+export const filterItems = [
+  {
+    type: 'everything',
+    name: 'Everything',
+    isDisabled: false,
+    isChecked: true
+  },
+  {
+    type: 'future',
+    name: 'Future',
+    isDisabled: false,
+    isChecked: false
+  },
+  {
+    type: 'present',
+    name: 'Present',
+    isDisabled: false,
+    isChecked: false
+  },
+  {
+    type: 'past',
+    name: 'Past',
+    isDisabled: false,
+    isChecked: false
+  }
+];
