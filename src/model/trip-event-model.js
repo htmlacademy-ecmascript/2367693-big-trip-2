@@ -5,19 +5,30 @@ export default class TripEventModel {
   constructor() {
     this.tripEvents = [];
     this.offers = offers;
-    this._onDataLoaded = null; // обработка загрузки данных
+    this._onDataLoaded = null;
   }
 
-  /**
-   * Сохраняет точки маршрута
-   * @param {Array} points - массив точек маршрута
-   */
   setPoints(points) {
     this.tripEvents = points;
 
     if (this._onDataLoaded) {
       this._onDataLoaded();
     }
+  }
+
+  updatePoint(updatedPoint) {
+    // 🧠 Преобразуем offers к id[], если нужно (страховка)
+    const normalizedOffers = Array.isArray(updatedPoint.offers)
+      ? updatedPoint.offers.map((offer) =>
+        typeof offer === 'object' && offer !== null ? offer.id : offer
+      )
+      : [];
+
+    this.tripEvents = this.tripEvents.map((point) =>
+      point.id === updatedPoint.id
+        ? { ...updatedPoint, offers: normalizedOffers }
+        : point
+    );
   }
 
   setOnDataLoaded(callback) {
@@ -54,11 +65,6 @@ export default class TripEventModel {
     return foundGroup ? foundGroup.offers : [];
   }
 
-  /**
-   * Возвращает массив фильтров с флагами активности
-   * @param {string} currentFilterType - активный фильтр
-   * @returns {Array}
-   */
   getFilters(currentFilterType) {
     return getFilters(this.getPoints(), currentFilterType);
   }

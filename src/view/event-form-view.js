@@ -89,7 +89,7 @@ function createDestinationTemplate(destination) {
   `;
 }
 
-function createEventFormTemplate(event, mode, offers = [], destinations = []) {
+function createEventFormTemplate(event, mode, offersByType = [], destinations = []) {
   const {
     type,
     destination,
@@ -104,8 +104,8 @@ function createEventFormTemplate(event, mode, offers = [], destinations = []) {
   const formattedStartTime = dayjs(dateFrom).format('DD/MM/YY HH:mm');
   const formattedEndTime = dayjs(dateTo).format('DD/MM/YY HH:mm');
 
-  const currentOffers = offers.find((group) => group.type === type)?.offers || [];
-  const eventTypes = offers.map((group) => group.type);
+  const currentOffers = offersByType.find((group) => group.type === type)?.offers || [];
+  const eventTypes = offersByType.map((group) => group.type);
 
   const destinationObj = destinations.find((d) => d.id === destination);
 
@@ -157,19 +157,19 @@ function createEventFormTemplate(event, mode, offers = [], destinations = []) {
 export default class EventFormView extends AbstractView {
   #event;
   #mode;
-  #offers;
+  #offersByType;
   #destinations;
 
   constructor({ event, mode = EventFormMode.CREATE, offers = [], destinations = [] }) {
     super();
     this.#event = event;
     this.#mode = mode;
-    this.#offers = offers;
+    this.#offersByType = offers;
     this.#destinations = destinations;
   }
 
   get template() {
-    return createEventFormTemplate(this.#event, this.#mode, this.#offers, this.#destinations);
+    return createEventFormTemplate(this.#event, this.#mode, this.#offersByType, this.#destinations);
   }
 
   setCloseClickHandler(callback) {
