@@ -6,6 +6,7 @@ const tripMainElement = document.querySelector('.trip-main');
 const tripEventsElement = document.querySelector('.trip-events');
 
 const tripEventModel = new TripEventModel();
+window.tripEventModel = tripEventModel;
 const tripPresenter = new TripPresenter(tripEventModel, tripMainElement, tripEventsElement);
 
 // Подписываем `Presenter` на момент загрузки данных

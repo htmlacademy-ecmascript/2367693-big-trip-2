@@ -16,7 +16,16 @@ function calculateEventDuration(dateFrom, dateTo) {
 }
 
 function createEventPointTemplate(point, destinations) {
-  const { type, destination, dateFrom, dateTo, basePrice, offers, isFavorite } = point;
+  const {
+    type,
+    destination,
+    dateFrom,
+    dateTo,
+    basePrice,
+    offersForPoint = [],
+    isFavorite
+  } = point;
+
   const destinationObj = destinations.find((d) => d.id === destination);
 
   const eventDate = dayjs(dateFrom).format('MMM D');
@@ -24,16 +33,16 @@ function createEventPointTemplate(point, destinations) {
   const endTimeFormatted = dayjs(dateTo).format('HH:mm');
   const durationFormatted = calculateEventDuration(dateFrom, dateTo);
 
-  const offersTemplate = Array.isArray(offers) && offers.length > 0
+  const offersTemplate = offersForPoint.length > 0
     ? `<ul class="event__selected-offers">
-        ${offers.filter((offer) => offer.isSelected).map((offer) => `
+        ${offersForPoint.map((offer) => `
           <li class="event__offer">
             <span class="event__offer-title">${offer.title}</span>
             &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
           </li>
         `).join('')}
       </ul>`
-    : '';
+    : '<!-- no offers -->';
 
   const favoriteClass = isFavorite ? 'event__favorite-btn--active' : '';
 
@@ -80,6 +89,7 @@ export default class EventPointView extends AbstractView {
   #point;
   #destinations;
   #onEditClick;
+  #onFavoriteClick;
 
   constructor(point, destinations) {
     super();
@@ -99,8 +109,21 @@ export default class EventPointView extends AbstractView {
     }
   }
 
+  setFavoriteClickHandler(callback) {
+    this.#onFavoriteClick = callback;
+    const favoriteButton = this.element.querySelector('.event__favorite-btn');
+    if (favoriteButton) {
+      favoriteButton.addEventListener('click', this.#favoriteClickHandler);
+    }
+  }
+
   #editClickHandler = (evt) => {
     evt.preventDefault();
     this.#onEditClick();
+  };
+
+  #favoriteClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onFavoriteClick();
   };
 }
