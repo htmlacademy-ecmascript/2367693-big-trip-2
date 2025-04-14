@@ -15,27 +15,30 @@ function calculateEventDuration(dateFrom, dateTo) {
   return `${days > 0 ? `${days}D ` : ''}${hours > 0 ? `${hours}H ` : ''}${minutes}M`;
 }
 
-function createEventPointTemplate(point, destinations) {
+function createEventPointTemplate(point, destinations, offersByType) {
   const {
     type,
     destination,
     dateFrom,
     dateTo,
     basePrice,
-    offersForPoint = [],
+    offers = [],
     isFavorite
   } = point;
 
+  const iconName = typeof type === 'string' ? type.toLowerCase() : 'default';
   const destinationObj = destinations.find((d) => d.id === destination);
+  const availableOffers = offersByType.find((group) => group.type === type)?.offers || [];
+  const selectedOffers = availableOffers.filter((offer) => offers.includes(offer.id));
 
   const eventDate = dayjs(dateFrom).format('MMM D');
   const startTimeFormatted = dayjs(dateFrom).format('HH:mm');
   const endTimeFormatted = dayjs(dateTo).format('HH:mm');
   const durationFormatted = calculateEventDuration(dateFrom, dateTo);
 
-  const offersTemplate = offersForPoint.length > 0
+  const offersTemplate = selectedOffers.length > 0
     ? `<ul class="event__selected-offers">
-        ${offersForPoint.map((offer) => `
+        ${selectedOffers.map((offer) => `
           <li class="event__offer">
             <span class="event__offer-title">${offer.title}</span>
             &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
@@ -51,7 +54,7 @@ function createEventPointTemplate(point, destinations) {
       <div class="event">
         <time class="event__date" datetime="${dateFrom}">${eventDate}</time>
         <div class="event__type">
-          <img class="event__type-icon" width="42" height="42" src="img/icons/${type.toLowerCase()}.png" alt="Event type icon">
+          <img class="event__type-icon" width="42" height="42" src="img/icons/${iconName}.png" alt="Event type icon">
         </div>
         <h3 class="event__title">${type} ${destinationObj?.name || ''}</h3>
 
@@ -88,17 +91,19 @@ function createEventPointTemplate(point, destinations) {
 export default class EventPointView extends AbstractView {
   #point;
   #destinations;
+  #offersByType;
   #onEditClick;
   #onFavoriteClick;
 
-  constructor(point, destinations) {
+  constructor(point, destinations, offersByType) {
     super();
     this.#point = point;
     this.#destinations = destinations;
+    this.#offersByType = offersByType;
   }
 
   get template() {
-    return createEventPointTemplate(this.#point, this.#destinations);
+    return createEventPointTemplate(this.#point, this.#destinations, this.#offersByType);
   }
 
   setEditClickHandler(callback) {

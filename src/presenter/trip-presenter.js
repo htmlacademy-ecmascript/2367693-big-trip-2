@@ -15,32 +15,12 @@ export default class TripPresenter {
   #pointPresenters = new Map();
   #tripEventsListComponent = null;
   #currentSortType = SortType.DAY;
+  #currentFilterType = Filters.EVERYTHING;
 
   constructor(tripEventModel, tripMainElement, tripEventsElement) {
     this.#tripEventModel = tripEventModel;
     this.#tripMainElement = tripMainElement;
     this.#tripEventsElement = tripEventsElement;
-  }
-
-  enrichEventForPoint(event) {
-    const offersByType = this.#tripEventModel.getOffers();
-    const allOffers = this.#tripEventModel.getOffersByType(event.type);
-    const selectedOfferIds = event.offers || [];
-
-    const offersForForm = allOffers.map((offer) => ({
-      ...offer,
-      isSelected: selectedOfferIds.includes(offer.id)
-    }));
-
-    const offersForPoint = allOffers.filter((offer) => selectedOfferIds.includes(offer.id));
-
-    return {
-      ...event,
-      offers: selectedOfferIds,
-      offersForForm,
-      offersForPoint,
-      offersByType
-    };
   }
 
   #handleModeChange = () => {
@@ -49,12 +29,11 @@ export default class TripPresenter {
 
   #handleDataChange = (updatedPoint) => {
     this.#tripEventModel.updatePoint(updatedPoint);
-    const enriched = this.enrichEventForPoint(updatedPoint);
     const presenter = this.#pointPresenters.get(updatedPoint.id);
 
     if (presenter) {
       presenter.resetView();
-      presenter.update(enriched);
+      presenter.update(updatedPoint);
     }
   };
 
@@ -66,6 +45,18 @@ export default class TripPresenter {
     this.#currentSortType = sortType;
     this.#clearPointList();
     this.#renderPointList();
+  };
+
+  #handleFilterChange = (filterType) => {
+    if (this.#currentFilterType === filterType) {
+      return;
+    }
+
+    this.#currentFilterType = filterType;
+    this.#currentSortType = SortType.DAY;
+
+    this.#clearPointList();
+    this.#renderTrip(); // полная перерисовка
   };
 
   #clearPointList() {
@@ -94,15 +85,12 @@ export default class TripPresenter {
 
   #renderPointList() {
     const tripPoints = this.#tripEventModel.getPoints();
-    const currentFilterType = Filters.EVERYTHING;
-    const filteredPoints = tripPoints.filter(filterTypeToCallback[currentFilterType]);
+    const filteredPoints = tripPoints.filter(filterTypeToCallback[this.#currentFilterType]);
     const sortedPoints = this.#getSortedPoints(filteredPoints);
     const destinations = this.#tripEventModel.getDestinations();
     const offersByType = this.#tripEventModel.getOffers();
 
     for (const event of sortedPoints) {
-      const enrichedEvent = this.enrichEventForPoint(event);
-
       const pointPresenter = new PointPresenter(
         this.#tripEventsListComponent.element,
         destinations,
@@ -111,32 +99,19 @@ export default class TripPresenter {
         this.#handleModeChange
       );
 
-      pointPresenter.init(enrichedEvent);
+      pointPresenter.init(event);
       this.#pointPresenters.set(event.id, pointPresenter);
     }
   }
 
-  init() {
-    const currentFilterType = Filters.EVERYTHING;
-
-    const tripPoints = this.#tripEventModel.getPoints();
-    const filteredPoints = tripPoints.filter(filterTypeToCallback[currentFilterType]);
-
-    const tripControlsElement = document.querySelector('.trip-controls__filters');
-    tripControlsElement.innerHTML = '';
-
-    const filters = this.#tripEventModel.getFilters(currentFilterType);
-    render(new TripFiltersView(filters), tripControlsElement, RenderPosition.BEFOREEND);
-
-    const oldInfo = this.#tripMainElement.querySelector('.trip-info');
-    if (oldInfo) {
-      oldInfo.remove();
-    }
-
+  #renderTrip() {
     this.#tripEventsElement.innerHTML = '';
 
+    const tripPoints = this.#tripEventModel.getPoints();
+    const filteredPoints = tripPoints.filter(filterTypeToCallback[this.#currentFilterType]);
+
     if (filteredPoints.length === 0) {
-      render(new NoPointsView(currentFilterType), this.#tripEventsElement, RenderPosition.BEFOREEND);
+      render(new NoPointsView(this.#currentFilterType), this.#tripEventsElement, RenderPosition.BEFOREEND);
       return;
     }
 
@@ -159,5 +134,19 @@ export default class TripPresenter {
     render(this.#tripEventsListComponent, this.#tripEventsElement, RenderPosition.BEFOREEND);
 
     this.#renderPointList();
+  }
+
+  init() {
+    const tripControlsElement = document.querySelector('.trip-controls__filters');
+    tripControlsElement.innerHTML = '';
+
+    const filters = this.#tripEventModel.getFilters(this.#currentFilterType);
+    render(
+      new TripFiltersView(filters, this.#handleFilterChange),
+      tripControlsElement,
+      RenderPosition.BEFOREEND
+    );
+
+    this.#renderTrip();
   }
 }

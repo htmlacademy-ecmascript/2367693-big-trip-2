@@ -1,14 +1,5 @@
 import AbstractView from '../framework/view/abstract-view.js';
 
-/**
- * Создаёт шаблон одного фильтра
- * @param {Object} filter
- * @param {string} filter.type
- * @param {string} filter.name
- * @param {boolean} filter.isDisabled
- * @param {boolean} filter.isChecked
- * @returns {string}
- */
 function createFilterItemTemplate({ type, name, isDisabled, isChecked }) {
   return `
     <div class="trip-filters__filter">
@@ -26,11 +17,6 @@ function createFilterItemTemplate({ type, name, isDisabled, isChecked }) {
   `;
 }
 
-/**
- * Создаёт шаблон формы фильтров
- * @param {Array} filters
- * @returns {string}
- */
 function createFiltersTemplate(filters) {
   const filtersMarkup = filters.map(createFilterItemTemplate).join('');
 
@@ -44,16 +30,23 @@ function createFiltersTemplate(filters) {
 
 export default class TripFiltersView extends AbstractView {
   #filters;
+  #onFilterChange;
 
-  /**
-   * @param {Array} filters - массив объектов фильтра
-   */
-  constructor(filters) {
+  constructor(filters, onFilterChange) {
     super();
     this.#filters = filters;
+    this.#onFilterChange = onFilterChange;
+
+    this.element.addEventListener('change', this.#handleFilterChange);
   }
 
   get template() {
     return createFiltersTemplate(this.#filters);
   }
+
+  #handleFilterChange = (evt) => {
+    if (evt.target.name === 'trip-filter') {
+      this.#onFilterChange?.(evt.target.value);
+    }
+  };
 }

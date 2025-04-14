@@ -29,8 +29,8 @@ function createDestinationOptionsTemplate(destinations = []) {
   return destinations.map((dest) => `<option value="${dest.name}"></option>`).join('');
 }
 
-function createOffersTemplate(selectedOfferIds, allOffers) {
-  if (!allOffers || allOffers.length === 0) {
+function createOffersTemplate(selectedOfferIds, allOffers = []) {
+  if (!allOffers.length) {
     return '';
   }
 
@@ -41,18 +41,18 @@ function createOffersTemplate(selectedOfferIds, allOffers) {
         ${allOffers.map((offer) => {
     const isChecked = selectedOfferIds.includes(offer.id);
     return `
-            <div class="event__offer-selector">
-              <input class="event__offer-checkbox visually-hidden"
-                     id="event-offer-${offer.id}"
-                     type="checkbox"
-                     name="event-offer"
-                     ${isChecked ? 'checked' : ''}>
-              <label class="event__offer-label" for="event-offer-${offer.id}">
-                <span class="event__offer-title">${offer.title}</span>
-                &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
-              </label>
-            </div>
-          `;
+          <div class="event__offer-selector">
+            <input class="event__offer-checkbox visually-hidden"
+                   id="event-offer-${offer.id}"
+                   type="checkbox"
+                   name="event-offer"
+                   ${isChecked ? 'checked' : ''}>
+            <label class="event__offer-label" for="event-offer-${offer.id}">
+              <span class="event__offer-title">${offer.title}</span>
+              &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
+            </label>
+          </div>
+        `;
   }).join('')}
       </div>
     </section>
@@ -106,7 +106,6 @@ function createEventFormTemplate(event, mode, offersByType = [], destinations = 
 
   const currentOffers = offersByType.find((group) => group.type === type)?.offers || [];
   const eventTypes = offersByType.map((group) => group.type);
-
   const destinationObj = destinations.find((d) => d.id === destination);
 
   return `
@@ -183,6 +182,13 @@ export default class EventFormView extends AbstractView {
     const formElement = this.element.querySelector('form');
     if (formElement) {
       formElement.addEventListener('submit', callback);
+    }
+  }
+
+  setFormResetHandler(callback) {
+    const resetButton = this.element.querySelector('.event__reset-btn');
+    if (resetButton) {
+      resetButton.addEventListener('click', callback);
     }
   }
 }

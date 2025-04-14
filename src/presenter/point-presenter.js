@@ -25,25 +25,8 @@ export default class PointPresenter {
 
   init(point) {
     this.#point = point;
-
-    this.#pointComponent = new EventPointView(this.#point, this.#destinations);
-
-    this.#pointComponent.setEditClickHandler(() => {
-      this.#onModeChange();
-      this.#replacePointToForm();
-      document.addEventListener('keydown', this.#onEscKeyDown);
-    });
-
-    this.#pointComponent.setFavoriteClickHandler(() => {
-      const updatedPoint = {
-        ...this.#point,
-        isFavorite: !this.#point.isFavorite,
-        offers: this.#point.offers?.map((o) => typeof o === 'object' ? o.id : o) ?? []
-      };
-
-      this.#changeData(updatedPoint);
-    });
-
+    this.#pointComponent = new EventPointView(this.#point, this.#destinations, this.#offersByType);
+    this.#setPointHandlers();
     this.#renderPoint();
   }
 
@@ -52,26 +35,11 @@ export default class PointPresenter {
     this.#point = point;
 
     const prevPointComponent = this.#pointComponent;
-    this.#pointComponent = new EventPointView(this.#point, this.#destinations);
-
-    this.#pointComponent.setEditClickHandler(() => {
-      this.#onModeChange();
-      this.#replacePointToForm();
-      document.addEventListener('keydown', this.#onEscKeyDown);
-    });
-
-    this.#pointComponent.setFavoriteClickHandler(() => {
-      const updatedPoint = {
-        ...this.#point,
-        isFavorite: !this.#point.isFavorite,
-        offers: this.#point.offers?.map((o) => typeof o === 'object' ? o.id : o) ?? []
-      };
-
-      this.#changeData(updatedPoint);
-    });
+    this.#pointComponent = new EventPointView(this.#point, this.#destinations, this.#offersByType);
+    this.#setPointHandlers();
 
     if (wasFormOpen) {
-      this.#replacePointToForm(); // пересоздаём форму, если была открыта
+      this.#replacePointToForm();
     } else if (prevPointComponent.element?.isConnected) {
       replace(this.#pointComponent, prevPointComponent);
     } else {
@@ -84,23 +52,18 @@ export default class PointPresenter {
 
   resetView() {
     if (this.#isFormOpen) {
-      this.#replaceFormToPoint();
-      document.removeEventListener('keydown', this.#onEscKeyDown);
+      this.#closeForm();
     }
   }
 
   destroy() {
-    if (this.#pointComponent) {
-      this.#pointComponent.element.remove();
-      this.#pointComponent.removeElement();
-    }
+    this.#pointComponent?.element.remove();
+    this.#pointComponent?.removeElement();
 
-    if (this.#formComponent) {
-      this.#formComponent.element.remove();
-      this.#formComponent.removeElement();
-    }
+    this.#formComponent?.element.remove();
+    this.#formComponent?.removeElement();
 
-    document.removeEventListener('keydown', this.#onEscKeyDown);
+    this.#removeEscHandler();
   }
 
   #renderPoint() {
@@ -120,28 +83,13 @@ export default class PointPresenter {
       offers: this.#offersByType
     });
 
-    this.#formComponent.setCloseClickHandler(() => {
-      this.#replaceFormToPoint();
-      document.removeEventListener('keydown', this.#onEscKeyDown);
-    });
-
-    this.#formComponent.setFormSubmitHandler(() => {
-      const selectedOfferIds = Array.from(
-        this.#formComponent.element.querySelectorAll('.event__offer-checkbox:checked')
-      ).map((input) => input.id.replace('event-offer-', ''));
-
-      const updated = {
-        ...this.#point,
-        offers: selectedOfferIds
-      };
-
-      this.#changeData(updated);
-      this.#replaceFormToPoint();
-      document.removeEventListener('keydown', this.#onEscKeyDown);
-    });
+    this.#formComponent.setCloseClickHandler(this.#closeForm);
+    this.#formComponent.setFormSubmitHandler(this.#handleFormSubmit);
+    this.#formComponent.setFormResetHandler(this.#closeForm);
 
     this.#isFormOpen = true;
     replace(this.#formComponent, this.#pointComponent);
+    document.addEventListener('keydown', this.#onEscKeyDown);
   }
 
   #replaceFormToPoint() {
@@ -151,11 +99,46 @@ export default class PointPresenter {
     }
   }
 
+  #closeForm = () => {
+    this.#replaceFormToPoint();
+    this.#removeEscHandler();
+  };
+
+  #handleFormSubmit = () => {
+    const selectedOfferIds = Array.from(
+      this.#formComponent.element.querySelectorAll('.event__offer-checkbox:checked')
+    ).map((input) => input.id.replace('event-offer-', ''));
+
+    this.#changeData({
+      id: this.#point.id,
+      offers: selectedOfferIds
+    });
+
+    this.#closeForm();
+  };
+
+  #setPointHandlers() {
+    this.#pointComponent.setEditClickHandler(() => {
+      this.#onModeChange();
+      this.#replacePointToForm();
+    });
+
+    this.#pointComponent.setFavoriteClickHandler(() => {
+      this.#changeData({
+        ...this.#point,
+        isFavorite: !this.#point.isFavorite
+      });
+    });
+  }
+
+  #removeEscHandler() {
+    document.removeEventListener('keydown', this.#onEscKeyDown);
+  }
+
   #onEscKeyDown = (evt) => {
     if (evt.key === 'Escape') {
       evt.preventDefault();
-      this.#replaceFormToPoint();
-      document.removeEventListener('keydown', this.#onEscKeyDown);
+      this.#closeForm();
     }
   };
 }
