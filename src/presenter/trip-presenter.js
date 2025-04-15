@@ -1,120 +1,152 @@
 import TripFiltersView from '../view/trip-filters-view.js';
 import SortView from '../view/sort-view.js';
-import EventFormView from '../view/event-form-view.js';
-import EventPointView from '../view/event-point-view.js';
 import TripInfoView from '../view/trip-info-view.js';
 import TripEventsView from '../view/trip-events-view.js';
 import NoPointsView from '../view/no-points-view.js';
-import { render, replace, RenderPosition } from '../framework/render.js';
-import { filterTypeToCallback } from '../const.js';
+import { render, RenderPosition } from '../framework/render.js';
+import { filterTypeToCallback, SortType, Filters } from '../const.js';
+import PointPresenter from './point-presenter.js';
+import dayjs from 'dayjs';
 
 export default class TripPresenter {
-  #currentFormComponent = null;
+  #tripEventModel = null;
+  #tripMainElement = null;
+  #tripEventsElement = null;
+  #pointPresenters = new Map();
+  #tripEventsListComponent = null;
+  #currentSortType = SortType.DAY;
+  #currentFilterType = Filters.EVERYTHING;
 
   constructor(tripEventModel, tripMainElement, tripEventsElement) {
-    this.tripEventModel = tripEventModel;
-    this.tripMainElement = tripMainElement;
-    this.tripEventsElement = tripEventsElement;
+    this.#tripEventModel = tripEventModel;
+    this.#tripMainElement = tripMainElement;
+    this.#tripEventsElement = tripEventsElement;
   }
 
-  enrichEventForPoint(event) {
-    const allOffers = this.tripEventModel.getOffersByType(event.type);
-    const selectedOfferIds = event.offers || [];
+  #handleModeChange = () => {
+    this.#pointPresenters.forEach((presenter) => presenter.resetView());
+  };
 
-    const selectedOffers = allOffers
-      .filter((offer) => selectedOfferIds.includes(offer.id))
-      .map((offer) => ({
-        ...offer,
-        isSelected: true,
-      }));
+  #handleDataChange = (updatedPoint) => {
+    this.#tripEventModel.updatePoint(updatedPoint);
+    const presenter = this.#pointPresenters.get(updatedPoint.id);
 
-    return {
-      ...event,
-      offers: selectedOffers,
-    };
-  }
+    if (presenter) {
+      presenter.resetView();
+      presenter.update(updatedPoint);
+    }
+  };
 
-  init() {
-    const currentFilterType = 'everything';
-
-    const tripPoints = this.tripEventModel.getPoints();
-    const filteredPoints = tripPoints.filter(filterTypeToCallback[currentFilterType]);
-
-    const tripControlsElement = document.querySelector('.trip-controls__filters');
-    const filters = this.tripEventModel.getFilters(currentFilterType);
-    render(new TripFiltersView(filters), tripControlsElement, RenderPosition.BEFOREEND);
-
-    if (filteredPoints.length === 0) {
-      render(new NoPointsView(currentFilterType), this.tripEventsElement, RenderPosition.BEFOREEND);
+  #handleSortTypeChange = (sortType) => {
+    if (this.#currentSortType === sortType) {
       return;
     }
 
-    const sortedPoints = filteredPoints.sort((a, b) => a.dateFrom - b.dateFrom);
+    this.#currentSortType = sortType;
+    this.#clearPointList();
+    this.#renderPointList();
+  };
 
-    const destinations = this.tripEventModel.getDestinations();
-    const totalPrice = this.tripEventModel.getTotalPrice();
+  #handleFilterChange = (filterType) => {
+    if (this.#currentFilterType === filterType) {
+      return;
+    }
 
-    const tripInfoComponent = new TripInfoView(sortedPoints, destinations, totalPrice);
-    render(tripInfoComponent, this.tripMainElement, RenderPosition.AFTERBEGIN);
+    this.#currentFilterType = filterType;
+    this.#currentSortType = SortType.DAY;
 
-    render(new SortView(), this.tripEventsElement, RenderPosition.BEFOREEND);
-    const tripEventsListComponent = new TripEventsView();
-    render(tripEventsListComponent, this.tripEventsElement, RenderPosition.BEFOREEND);
+    this.#clearPointList();
+    this.#renderTrip(); // полная перерисовка
+  };
 
-    const allOffers = this.tripEventModel.getOffers();
+  #clearPointList() {
+    this.#pointPresenters.forEach((presenter) => {
+      presenter?.destroy?.();
+    });
+    this.#pointPresenters.clear();
+    this.#tripEventsListComponent.element.innerHTML = '';
+  }
+
+  #getSortedPoints(points) {
+    switch (this.#currentSortType) {
+      case SortType.TIME:
+        return [...points].sort((a, b) => {
+          const durationA = dayjs(a.dateTo).diff(dayjs(a.dateFrom));
+          const durationB = dayjs(b.dateTo).diff(dayjs(b.dateFrom));
+          return durationB - durationA;
+        });
+      case SortType.PRICE:
+        return [...points].sort((a, b) => b.basePrice - a.basePrice);
+      case SortType.DAY:
+      default:
+        return [...points].sort((a, b) => dayjs(a.dateFrom).diff(dayjs(b.dateFrom)));
+    }
+  }
+
+  #renderPointList() {
+    const tripPoints = this.#tripEventModel.getPoints();
+    const filteredPoints = tripPoints.filter(filterTypeToCallback[this.#currentFilterType]);
+    const sortedPoints = this.#getSortedPoints(filteredPoints);
+    const destinations = this.#tripEventModel.getDestinations();
+    const offersByType = this.#tripEventModel.getOffers();
 
     for (const event of sortedPoints) {
-      const enrichedEvent = this.enrichEventForPoint(event);
-      const eventPointComponent = new EventPointView(enrichedEvent, destinations);
-      const eventFormComponent = new EventFormView({
-        mode: 'edit',
-        event,
-        offers: allOffers,
+      const pointPresenter = new PointPresenter(
+        this.#tripEventsListComponent.element,
         destinations,
-      });
+        offersByType,
+        this.#handleDataChange,
+        this.#handleModeChange
+      );
 
-      const replaceFormToPoint = () => {
-        const formElement = eventFormComponent.element;
-        if (formElement && formElement.parentElement) {
-          replace(eventPointComponent, eventFormComponent);
-        }
-        this.#currentFormComponent = null;
-      };
-
-      eventPointComponent.setEditClickHandler(() => {
-        if (this.#currentFormComponent) {
-          const prevFormElement = this.#currentFormComponent.element;
-          if (prevFormElement && prevFormElement.parentElement) {
-            replace(this.#currentFormComponent._pointComponent, this.#currentFormComponent);
-          }
-        }
-
-        replace(eventFormComponent, eventPointComponent);
-        this.#currentFormComponent = eventFormComponent;
-        eventFormComponent._pointComponent = eventPointComponent;
-
-        const escKeyDownHandler = (evt) => {
-          if (evt.key === 'Escape') {
-            evt.preventDefault();
-            replaceFormToPoint();
-            document.removeEventListener('keydown', escKeyDownHandler);
-          }
-        };
-
-        document.addEventListener('keydown', escKeyDownHandler);
-
-        eventFormComponent.setCloseClickHandler(() => {
-          replaceFormToPoint();
-          document.removeEventListener('keydown', escKeyDownHandler);
-        });
-
-        eventFormComponent.setFormSubmitHandler(() => {
-          replaceFormToPoint();
-          document.removeEventListener('keydown', escKeyDownHandler);
-        });
-      });
-
-      render(eventPointComponent, tripEventsListComponent.element, RenderPosition.BEFOREEND);
+      pointPresenter.init(event);
+      this.#pointPresenters.set(event.id, pointPresenter);
     }
+  }
+
+  #renderTrip() {
+    this.#tripEventsElement.innerHTML = '';
+
+    const tripPoints = this.#tripEventModel.getPoints();
+    const filteredPoints = tripPoints.filter(filterTypeToCallback[this.#currentFilterType]);
+
+    if (filteredPoints.length === 0) {
+      render(new NoPointsView(this.#currentFilterType), this.#tripEventsElement, RenderPosition.BEFOREEND);
+      return;
+    }
+
+    const destinations = this.#tripEventModel.getDestinations();
+    const totalPrice = this.#tripEventModel.getTotalPrice();
+
+    const tripInfoComponent = new TripInfoView(filteredPoints, destinations, totalPrice);
+    render(tripInfoComponent, this.#tripMainElement, RenderPosition.AFTERBEGIN);
+
+    render(
+      new SortView({
+        sortType: this.#currentSortType,
+        onSortTypeChange: this.#handleSortTypeChange
+      }),
+      this.#tripEventsElement,
+      RenderPosition.BEFOREEND
+    );
+
+    this.#tripEventsListComponent = new TripEventsView();
+    render(this.#tripEventsListComponent, this.#tripEventsElement, RenderPosition.BEFOREEND);
+
+    this.#renderPointList();
+  }
+
+  init() {
+    const tripControlsElement = document.querySelector('.trip-controls__filters');
+    tripControlsElement.innerHTML = '';
+
+    const filters = this.#tripEventModel.getFilters(this.#currentFilterType);
+    render(
+      new TripFiltersView(filters, this.#handleFilterChange),
+      tripControlsElement,
+      RenderPosition.BEFOREEND
+    );
+
+    this.#renderTrip();
   }
 }
