@@ -1,11 +1,6 @@
 import AbstractView from '../framework/view/abstract-view.js';
 import { SortType } from '../const.js';
 
-/**
- * Шаблон разметки сортировки
- * @param {string} currentSortType - активный тип сортировки
- * @returns {string}
- */
 function createSortTemplate(currentSortType) {
   return `
     <form class="trip-events__trip-sort  trip-sort" action="#" method="get">

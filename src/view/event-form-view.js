@@ -1,8 +1,9 @@
-import AbstractView from '../framework/view/abstract-view.js';
+import AbstractStatefulView from '../framework/view/abstract-stateful-view.js';
 import { EventFormMode } from '../const.js';
 import dayjs from 'dayjs';
+import flatpickr from 'flatpickr';
+import 'flatpickr/dist/flatpickr.min.css';
 
-// Функции шаблонов
 function createEventTypeListTemplate(currentType, eventTypes = []) {
   return eventTypes.map((type) => {
     const lowerType = type.toLowerCase().replace(/\s+/g, '-');
@@ -41,18 +42,18 @@ function createOffersTemplate(selectedOfferIds, allOffers = []) {
         ${allOffers.map((offer) => {
     const isChecked = selectedOfferIds.includes(offer.id);
     return `
-          <div class="event__offer-selector">
-            <input class="event__offer-checkbox visually-hidden"
-                   id="event-offer-${offer.id}"
-                   type="checkbox"
-                   name="event-offer"
-                   ${isChecked ? 'checked' : ''}>
-            <label class="event__offer-label" for="event-offer-${offer.id}">
-              <span class="event__offer-title">${offer.title}</span>
-              &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
-            </label>
-          </div>
-        `;
+            <div class="event__offer-selector">
+              <input class="event__offer-checkbox visually-hidden"
+                     id="event-offer-${offer.id}"
+                     type="checkbox"
+                     name="event-offer"
+                     ${isChecked ? 'checked' : ''}>
+              <label class="event__offer-label" for="event-offer-${offer.id}">
+                <span class="event__offer-title">${offer.title}</span>
+                &plus;&euro;&nbsp;<span class="event__offer-price">${offer.price}</span>
+              </label>
+            </div>
+          `;
   }).join('')}
       </div>
     </section>
@@ -60,7 +61,7 @@ function createOffersTemplate(selectedOfferIds, allOffers = []) {
 }
 
 function createPhotosTemplate(pictures) {
-  if (!pictures || pictures.length === 0) {
+  if (!pictures?.length) {
     return '';
   }
 
@@ -76,7 +77,7 @@ function createPhotosTemplate(pictures) {
 }
 
 function createDestinationTemplate(destination) {
-  if (!destination || (!destination.description && (!destination.pictures || destination.pictures.length === 0))) {
+  if (!destination || (!destination.description && (!destination.pictures?.length))) {
     return '';
   }
 
@@ -135,9 +136,9 @@ function createEventFormTemplate(event, mode, offersByType = [], destinations = 
         </div>
 
         <div class="event__field-group event__field-group--time">
-          <input class="event__input event__input--time" type="text" name="event-start-time" value="${formattedStartTime}">
+          <input class="event__input event__input--time" id="event-start-time-1" type="text" name="event-start-time" value="${formattedStartTime}">
           &mdash;
-          <input class="event__input event__input--time" type="text" name="event-end-time" value="${formattedEndTime}">
+          <input class="event__input event__input--time" id="event-end-time-1" type="text" name="event-end-time" value="${formattedEndTime}">
         </div>
 
         <button class="event__save-btn btn btn--blue" type="submit">Save</button>
@@ -153,42 +154,132 @@ function createEventFormTemplate(event, mode, offersByType = [], destinations = 
   `;
 }
 
-export default class EventFormView extends AbstractView {
-  #event;
+export default class EventFormView extends AbstractStatefulView {
   #mode;
   #offersByType;
   #destinations;
 
-  constructor({ event, mode = EventFormMode.CREATE, offers = [], destinations = [] }) {
+  #handleFormSubmit = null;
+  #handleFormReset = null;
+  #handleCloseClick = null;
+
+  #dateFromPicker = null;
+  #dateToPicker = null;
+
+  constructor({ event, mode = EventFormMode.CREATE, offers = [], destinations = [], onFormSubmit }) {
     super();
-    this.#event = event;
+    this._state = {
+      ...structuredClone(event),
+      id: event.id
+    };
     this.#mode = mode;
     this.#offersByType = offers;
     this.#destinations = destinations;
+    this.#handleFormSubmit = onFormSubmit;
   }
 
   get template() {
-    return createEventFormTemplate(this.#event, this.#mode, this.#offersByType, this.#destinations);
+    return createEventFormTemplate(this._state, this.#mode, this.#offersByType, this.#destinations);
   }
 
+  _restoreHandlers() {
+    this.element?.querySelectorAll('.event__type-input')
+      .forEach((input) => input.addEventListener('change', this.#typeChangeHandler));
+
+    this.element?.querySelector('.event__input--destination')
+      ?.addEventListener('change', this.#destinationChangeHandler);
+
+    this.element?.addEventListener('submit', this.#formSubmitHandler);
+
+    if (this.#handleFormReset) {
+      this.setFormResetHandler(this.#handleFormReset);
+    }
+
+    if (this.#handleCloseClick) {
+      this.setCloseClickHandler(this.#handleCloseClick);
+    }
+
+    this.#setDatePickers();
+  }
+
+  #formSubmitHandler = (evt) => {
+    evt.preventDefault();
+    this.#handleFormSubmit(EventFormView.parseStateToPoint(this._state));
+  };
+
+  #setDatePickers() {
+    this.#dateFromPicker = flatpickr(
+      this.element.querySelector('#event-start-time-1'),
+      {
+        enableTime: true,
+        dateFormat: 'd/m/y H:i',
+        defaultDate: this._state.dateFrom,
+        onChange: this.#dateFromChangeHandler,
+      }
+    );
+
+    this.#dateToPicker = flatpickr(
+      this.element.querySelector('#event-end-time-1'),
+      {
+        enableTime: true,
+        dateFormat: 'd/m/y H:i',
+        defaultDate: this._state.dateTo,
+        onChange: this.#dateToChangeHandler,
+      }
+    );
+  }
+
+  #removeDatePickers() {
+    this.#dateFromPicker?.destroy();
+    this.#dateFromPicker = null;
+
+    this.#dateToPicker?.destroy();
+    this.#dateToPicker = null;
+  }
+
+  #dateFromChangeHandler = ([userDate]) => {
+    this.updateElement({ dateFrom: userDate.toISOString() });
+  };
+
+  #dateToChangeHandler = ([userDate]) => {
+    this.updateElement({ dateTo: userDate.toISOString() });
+  };
+
+  removeElement() {
+    this.#removeDatePickers();
+    super.removeElement();
+  }
+
+  #typeChangeHandler = (evt) => {
+    this.updateElement({ type: evt.target.value, offers: [] });
+  };
+
+  #destinationChangeHandler = (evt) => {
+    const destination = this.#destinations.find((dest) => dest.name === evt.target.value);
+    this.updateElement({ destination: destination?.id || null });
+  };
+
   setCloseClickHandler(callback) {
+    this.#handleCloseClick = callback;
     const button = this.element.querySelector('.event__rollup-btn');
     if (button) {
       button.addEventListener('click', callback);
     }
   }
 
-  setFormSubmitHandler(callback) {
-    const formElement = this.element.querySelector('form');
-    if (formElement) {
-      formElement.addEventListener('submit', callback);
+  setFormResetHandler(callback) {
+    this.#handleFormReset = callback;
+    const reset = this.element.querySelector('.event__reset-btn');
+    if (reset) {
+      reset.addEventListener('click', callback);
     }
   }
 
-  setFormResetHandler(callback) {
-    const resetButton = this.element.querySelector('.event__reset-btn');
-    if (resetButton) {
-      resetButton.addEventListener('click', callback);
-    }
+  static parsePointToState(point) {
+    return structuredClone(point);
+  }
+
+  static parseStateToPoint(state) {
+    return structuredClone(state);
   }
 }
