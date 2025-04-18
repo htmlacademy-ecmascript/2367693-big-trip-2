@@ -2,6 +2,7 @@ import { render, replace } from '../framework/render.js';
 import EventPointView from '../view/event-point-view.js';
 import EventFormView from '../view/event-form-view.js';
 import { EventFormMode } from '../const.js';
+import { adaptToServer } from '../adapters/event-adapter.js';
 
 export default class PointPresenter {
   #point = null;
@@ -80,15 +81,19 @@ export default class PointPresenter {
       event: this.#point,
       mode: EventFormMode.EDIT,
       destinations: this.#destinations,
-      offers: this.#offersByType
+      offers: this.#offersByType,
+      onFormSubmit: this.#handleFormSubmit
     });
 
-    this.#formComponent.setCloseClickHandler(this.#closeForm);
-    this.#formComponent.setFormSubmitHandler(this.#handleFormSubmit);
-    this.#formComponent.setFormResetHandler(this.#closeForm);
-
     this.#isFormOpen = true;
+
     replace(this.#formComponent, this.#pointComponent);
+
+    this.#formComponent.setFormResetHandler(this.#closeForm);
+    this.#formComponent.setCloseClickHandler(this.#closeForm);
+
+    this.#formComponent._restoreHandlers(); // допустимо, если форма использует этот метод
+
     document.addEventListener('keydown', this.#onEscKeyDown);
   }
 
@@ -104,16 +109,9 @@ export default class PointPresenter {
     this.#removeEscHandler();
   };
 
-  #handleFormSubmit = () => {
-    const selectedOfferIds = Array.from(
-      this.#formComponent.element.querySelectorAll('.event__offer-checkbox:checked')
-    ).map((input) => input.id.replace('event-offer-', ''));
-
-    this.#changeData({
-      id: this.#point.id,
-      offers: selectedOfferIds
-    });
-
+  #handleFormSubmit = (formState) => {
+    const updatedPoint = adaptToServer(formState);
+    this.#changeData(updatedPoint);
     this.#closeForm();
   };
 

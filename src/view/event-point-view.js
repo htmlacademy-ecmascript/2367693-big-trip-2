@@ -1,19 +1,6 @@
 import AbstractView from '../framework/view/abstract-view.js';
 import dayjs from 'dayjs';
-import duration from 'dayjs/plugin/duration.js';
-
-dayjs.extend(duration);
-
-function calculateEventDuration(dateFrom, dateTo) {
-  const diffInMinutes = dayjs(dateTo).diff(dayjs(dateFrom), 'minute');
-  const dur = dayjs.duration(diffInMinutes, 'minutes');
-
-  const days = dur.days();
-  const hours = dur.hours();
-  const minutes = dur.minutes();
-
-  return `${days > 0 ? `${days}D ` : ''}${hours > 0 ? `${hours}H ` : ''}${minutes}M`;
-}
+import { calculateEventDuration } from '../utils.js';
 
 function createEventPointTemplate(point, destinations, offersByType) {
   const {

@@ -8,11 +8,6 @@ const NoPointsText = {
   [Filters.PAST]: 'There are no past events now',
 };
 
-/**
- * Генератор шаблона заглушки
- * @param {string} filterType
- * @returns {string}
- */
 function createNoPointsTemplate(filterType) {
   const message = NoPointsText[filterType] || NoPointsText[Filters.EVERYTHING];
 
@@ -22,9 +17,6 @@ function createNoPointsTemplate(filterType) {
 export default class NoPointsView extends AbstractView {
   #filterType;
 
-  /**
-   * @param {string} filterType — тип активного фильтра (Filters.EVERYTHING, etc.)
-   */
   constructor(filterType) {
     super();
     this.#filterType = filterType;

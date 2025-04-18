@@ -1,5 +1,6 @@
 import { destinations, offers } from '../mock/trip-event-mock.js';
 import { getFilters } from '../utils.js';
+import { adaptToClient } from '../adapters/event-adapter.js';
 
 export default class TripEventModel {
   #tripEvents = [];
@@ -7,7 +8,7 @@ export default class TripEventModel {
   #onDataLoaded = null;
 
   setPoints(points) {
-    this.#tripEvents = points.map(this.#adaptToClient);
+    this.#tripEvents = points.map(adaptToClient);
     this.#onDataLoaded?.();
   }
 
@@ -17,18 +18,9 @@ export default class TripEventModel {
       throw new Error(`Can't update point with id ${update.id} — not found`);
     }
 
-    const existing = this.#tripEvents[index];
-
-    const adapted = this.#adaptToClient({
-      ...existing,
-      ...update,
-      // гарантия, что если offers не передан — оставим прежние
-      offers: update.offers ?? existing.offers
-    });
-
     this.#tripEvents = [
       ...this.#tripEvents.slice(0, index),
-      adapted,
+      update,
       ...this.#tripEvents.slice(index + 1)
     ];
   }
@@ -68,20 +60,5 @@ export default class TripEventModel {
 
   getFilters(currentFilterType) {
     return getFilters(this.#tripEvents, currentFilterType);
-  }
-
-  #adaptToClient(point) {
-    return {
-      ...point,
-      type: point.type ?? '',
-      destination: point.destination ?? '',
-      basePrice: point.basePrice ?? 0,
-      dateFrom: point.dateFrom ?? new Date().toISOString(),
-      dateTo: point.dateTo ?? new Date().toISOString(),
-      isFavorite: point.isFavorite ?? false,
-      offers: (point.offers ?? []).map((offer) =>
-        typeof offer === 'object' ? offer.id : offer
-      )
-    };
   }
 }

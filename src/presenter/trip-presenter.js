@@ -16,6 +16,7 @@ export default class TripPresenter {
   #tripEventsListComponent = null;
   #currentSortType = SortType.DAY;
   #currentFilterType = Filters.EVERYTHING;
+  #tripInfoComponent = null;
 
   constructor(tripEventModel, tripMainElement, tripEventsElement) {
     this.#tripEventModel = tripEventModel;
@@ -29,12 +30,8 @@ export default class TripPresenter {
 
   #handleDataChange = (updatedPoint) => {
     this.#tripEventModel.updatePoint(updatedPoint);
-    const presenter = this.#pointPresenters.get(updatedPoint.id);
-
-    if (presenter) {
-      presenter.resetView();
-      presenter.update(updatedPoint);
-    }
+    this.#clearPointList();
+    this.#renderTrip();
   };
 
   #handleSortTypeChange = (sortType) => {
@@ -56,7 +53,7 @@ export default class TripPresenter {
     this.#currentSortType = SortType.DAY;
 
     this.#clearPointList();
-    this.#renderTrip(); // полная перерисовка
+    this.#renderTrip();
   };
 
   #clearPointList() {
@@ -118,8 +115,13 @@ export default class TripPresenter {
     const destinations = this.#tripEventModel.getDestinations();
     const totalPrice = this.#tripEventModel.getTotalPrice();
 
-    const tripInfoComponent = new TripInfoView(filteredPoints, destinations, totalPrice);
-    render(tripInfoComponent, this.#tripMainElement, RenderPosition.AFTERBEGIN);
+    if (this.#tripInfoComponent) {
+      this.#tripInfoComponent.element.remove();
+      this.#tripInfoComponent.removeElement();
+    }
+
+    this.#tripInfoComponent = new TripInfoView(filteredPoints, destinations, totalPrice);
+    render(this.#tripInfoComponent, this.#tripMainElement, RenderPosition.AFTERBEGIN);
 
     render(
       new SortView({
